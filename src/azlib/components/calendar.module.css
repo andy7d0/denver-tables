@@ -1,0 +1,91 @@
+.container {
+	border:  1px solid;
+	padding: 1ex;
+	width: 19em;
+	background: white;
+	font-size: 14pt;
+	color: black;
+}
+
+.container button {
+	border:  none;
+	background: transparent;
+}
+.header {
+	display: flex;
+	background: #eee;
+	padding: 1ex;
+}
+
+.header > * {
+	flex: 1;
+}
+
+.header > * {
+	text-align: center;
+}
+
+.header > *:first-child
+, .header > *:last-child {
+	flex: 0;
+}
+
+.header > *:first-child {
+	text-align: left;
+}
+.header > *:first-child {
+	text-align: right;
+}
+
+
+.body {
+	display: table;
+	width:  100%;
+}
+
+.body > * {
+	display: table-row;
+}
+
+.body > * > * {
+	display: table-cell;
+	text-align: center;
+	min-width: 2.5em;
+	vertical-align: middle;
+}
+
+.body > * > * > button {
+	width: 100%;
+}
+
+.month 
+, .years 
+, .decades {
+	height: 3em;
+}
+
+.decades > :first-child {
+	margin-left: -1em;
+}
+.decades > :last-child {
+	margin-left: 1em;
+}
+
+.days {}
+
+.body > .days:first-child {
+	font-weight: bold;
+}
+
+.current {
+	opacity: 0.6;
+}
+
+.other {
+	opacity: 0.4;
+}
+
+.outOfRange {
+	opacity: 0.4;
+	text-decoration: line-through;
+}
