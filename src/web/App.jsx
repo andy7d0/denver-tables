@@ -1,6 +1,10 @@
 import { lazy, Suspense, useState, createContext, useContext, useEffect } from 'react';
 import { BrowserRouter as Router, Routes,Route, Link, useNavigate} from "react-router-dom"
 
+import {setAuthToken, subscribe, broadcast, getLoggedState, logout, login} from 'azlib/common.mjs'
+
+import ClientPage from './client/client.jsx'
+
 // eslint-disable-next-line no-unassigned-import
 import './App.css';
 
@@ -16,7 +20,7 @@ function DefApp() {
         <Link to="login">login</Link>}
       <div className="card">
         <p>
-          <Link to="ext_app">ext</Link>
+          <Link to="cl">client-page</Link>
         </p>
       </div>
 
@@ -39,16 +43,7 @@ function UserApp() {
   return <Routes>
     <Route path="/" element={<DefApp/>} />
     <Route path="/login" element={<LoginPage/>} />
-    <Route path="int/*" element={
-        <Suspense fallback={<div>Loading app...</div>}>
-          <IntApp />
-        </Suspense>
-    }/>
-    <Route path="*" element={
-      <Suspense fallback={<div>Loading app...</div>}>
-        <ExtApp />
-      </Suspense>
-    }/>
+    <Route path="/cl" element={<ClientPage/>} />
   </Routes>
 }
 
@@ -62,7 +57,7 @@ function LoginPage() {
       const data = new FormData(event.target);
       const obj = Object.fromEntries(data.entries())
       try {
-        const auth = await login(()=>api_post('/app/login',obj))
+        const auth = null; //TODO: await login(()=>api_post('/app/login',obj))
         await setAuthToken(auth);
         navigate('/')
       } catch(error) {
@@ -93,11 +88,6 @@ function UinfoContext({children}) {
   useEffect(()=>{
     getLoggedState().then(st=>{broadcast('auth', st)})
   }, [])
-  const id = auth?.subscription;
-  const version = auth?.version;
-  useEffect(()=>{
-    monitorResource('user', id, version)
-  },[id,version])
   return <Uctx value={auth?.uinfo??empty}>{children}</Uctx>
 }
 

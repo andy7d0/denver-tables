@@ -294,7 +294,7 @@ function resetMonitor() {
   }
 }
 
-let checkUrl = '/app/cache/monitor';
+let checkUrl = null;
 export function setCheckUrl(url) { checkUrl = url; controller?.abort(); controller = undefined; }
 
 // TODO: share it between windows
@@ -340,6 +340,7 @@ if(self.document) {
 
 
   async function check(){
+    if(!checkUrl) return;
     console.log('start monitor')
     if(!document.hasFocus()) return;
     if(controller) {
