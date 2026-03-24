@@ -1,0 +1,22 @@
+# Local
+.DS_Store
+*.local
+*.log*
+.swc/
+
+# Dist
+node_modules/
+dist/
+workarea/
+
+# conf
+/compose-env
+
+# Profile
+.rspack-profile-*/
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.sublime-workspace
