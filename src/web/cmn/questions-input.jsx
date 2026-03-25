@@ -1,11 +1,5 @@
-import {produce} from "immer"
-import {useState, useEffect, useCallback, useMemo} from 'react'
-import {  useParams, useSearchParams } from 'react-router-dom';
-
-import { get as getKV, set as setKV } from 'idb-keyval';
-import {customStore} from 'azlib/common.mjs'
-
-import {useLocalState} from 'azlib/local-db-item.mjs'
+import {useEffect, useCallback, useMemo} from 'react'
+import { useSearchParams } from 'react-router-dom';
 
 import qs from '../data/quests.mjs';
 
@@ -43,13 +37,7 @@ const bstyle = {
 	, textAlign: "left"
 }
 
-export default function QInput({role}) {
-	const params = useParams()
-	const book = params?.b ?? '000';
-	
-	let bookName = `book-${book}.${role}`;
-
-
+export default function QInput({meta, value, valSetter }) {	
 	const [searchParams, setSearchParams] = useSearchParams();
 	const npp = +searchParams.get('n') || ''
 	const setNpp = useCallback((f,back)=>
@@ -61,32 +49,18 @@ export default function QInput({role}) {
 			return prevParams;
 	}, back && {} || {replace: true}),[setSearchParams])
 
-	const [hasResults, results, produceResults] = useLocalState(bookName,
-			{
-				meta:{
-					notes: ''
-					, levels: ["УРОВЕНЬ 1", "УРОВЕНЬ 2", "УРОВЕНЬ 3", "УРОВЕНЬ 4"]
-					, period: ''
-				}
-				, [role]: {}
-			}
-		)
 
-	const levels = results?.meta?.levels;
+	const levels = meta?.levels;
 	const arr = useMemo(()=>
 			levels 
 			? flat.filter(a=>a.lvl.in(...levels))
 			: flat
 		, [levels]);
+
 	const q = arr[npp-1];
 
-	const r = q && results?.[role]?.[q.lvl]?.[q.part]?.[q.npp];
-	const setR = useCallback(v => produceResults(draft=>{
-								draft[role] ??= {}
-								draft[role][q.lvl] ??= {}
-								draft[role][q.lvl][q.part] ??= {}
-								draft[role][q.lvl][q.part][q.npp] = v 				
-			}), [role, q, produceResults])
+	const r = q && value?.[q.lvl]?.[q.part]?.[q.npp];
+	const setR = useCallback(v => valSetter(q,v), [valSetter, q])
 
 	useEffect(()=>{
 		const keydown = e=>{
@@ -106,16 +80,13 @@ export default function QInput({role}) {
 	},[setNpp, setR, q, arr])
 
 	return <div>
-		{
-			!hasResults && '--- wait ---'
-		}
-		{ hasResults && npp === '' && <div>
+		{ npp === '' && <div>
 				<button type="button" onClick={()=>{setNpp(1, true)}}
 						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
 				>Начать</button>
 			</div>
 		}
-		{ hasResults && typeof npp === 'number' &&<div>
+		{ typeof npp === 'number' &&<div>
 			<div style={{float:"right", marginRight:"1em"}}><button type="button" onClick={()=>setNpp('', true)}>H</button></div>
 			<h6>{q.lvl}</h6>
 			<h4>{q.hdr}</h4>

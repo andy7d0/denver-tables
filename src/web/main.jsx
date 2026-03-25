@@ -37,9 +37,11 @@ import * as gitVersion from 'git-version';
 
 console.log(gitVersion)
 
+// keep initial hash fragment
+window.initialHash = window.location.hash
 
 if(window.location.pathname === '/' && window.location.search) {
-  console.log('need redirect', window.location)
+  console.log('need redirect', window.location)  
   window.history.replaceState(null,'', 
         window.location.search.substr(1)
   );

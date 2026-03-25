@@ -1,4 +1,4 @@
-import {createContext, use, useState, useEffect, useCallback, useRef} from 'react';
+import {createContext, use, useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import {createPortal} from 'react-dom';
 import {createRoot} from 'react-dom/client';
 
@@ -76,8 +76,12 @@ export function PopupFrame({className, children, ...props}) {
 
 //const focusableSelector = "INPUT,TEXTAREA,SELECT,BUTTON";
 
+/*
+	надо делать render для portal в зависимости от context
+*/
 
 export function useModals() {
+	
 	const [element, setOpen] = useState()
 
 	const showModal = useCallback((element, modalProps = {}, bindProps = {}, triggerElem = null) => {
@@ -160,17 +164,19 @@ export function useModals() {
 		}
 	,[setOpen])
 
-	showModal.Portal = ({children})=> <>
-		{element && createPortal((element), document.getElementById('modals'))}
-		{applyEx(children, showModal)}
-	</>
+	showModal.portal = (children)=><>
+			{element && createPortal(element, document.getElementById('modals'))}
+			{applyEx(children, showModal)}
+		</>
+		;
 
 	return showModal;
 }
 
+
 export function WithModals({children}) {
 	const showModal = useModals()
-	return <showModal.Portal>{children}</showModal.Portal>
+	return showModal.portal(children)
 }
 
 
@@ -248,7 +254,7 @@ export function PopupModal({
 	const uRef = ref ?? triggerRef;
 	const showModal = useModals()
 
-	return <showModal.Portal>{applyProps(trigger, {ref: uRef
+	return showModal.portal(applyProps(trigger, {ref: uRef
 		, readOnly
 		, onClick:
 			async e=>{
@@ -258,7 +264,7 @@ export function PopupModal({
 					onClose?.(r)
 				}				
 			}
-		})}</showModal.Portal>
+		}))
 }
 
 export function TriggerButton({readOnly,children}) {
@@ -377,7 +383,7 @@ export function GlobalModals({children}) {
 	const showModal = useModals()
 	globalShowModal = showModal;
 
-	return <showModal.Portal>{children}</showModal.Portal>
+	return showModal.portal(children)
 }
 
 

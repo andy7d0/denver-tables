@@ -1,15 +1,17 @@
-import {useState, useEffect, useMemo} from 'react'
+import {useState, useEffect, useMemo, useCallback} from 'react'
 import { Routes, Route, Outlet, useOutletContext, useParams, Link, useNavigate } from "react-router-dom"
 
-import {getLoggedState, getGlobalUniqueCode} from 'azlib/common.mjs' 
+import {getLoggedState, getGlobalUniqueCode, customStore} from 'azlib/common.mjs' 
 
-import {later} from 'azlib/helpers.mjs'
-
-import {useLocalState} from 'azlib/local-db-item.mjs'
+import {useLocalState, syncSave} from 'azlib/local-db-item.mjs'
 
 import {sha256}  from  'js-sha256';
 
+import {set as setKV} from 'idb-keyval';
+
 import {confirm} from 'azlib/components/controls.jsx'
+
+import QInput from '../cmn/questions-input.jsx';
 
 import qs from '../data/quests.mjs';
 
@@ -19,8 +21,12 @@ export default function TrPage() {
 	return <Routes>
 		<Route element={<TrLayout/>}>
 			<Route index element={<TrIndex/>} />
-			<Route path=":id" element={<TrChild/>} />
-			<Route path=":id/test/:step" element={<TrTest/>} />
+			<Route path=":id">
+				<Route index element={<TrChild/>} />
+				<Route path="test/:step/:bid" element={<TrTest/>} />
+				<Route path="test/:step/:bid/perform/tr" element={<TrPerformTest mode="tr" />} />
+				<Route path="test/:step/:bid/perform/cl" element={<TrPerformTest mode="cl" />} />
+			</Route>
 		</Route>
 	</Routes>
 }
@@ -72,7 +78,6 @@ function TrIndex() {
 				draft.children ??= {}
 				draft.children[id] = {id, lastOp: Date.now()}
 			})
-			await later(100)
 			navigate(`/tr/${id}`)
 		}}>+ новый ребенок</button>
 		</div>
@@ -101,28 +106,28 @@ function TrChild() {
 		{hasTests && <> 
 			<h1>Тесты</h1>
 			{tests?.length &&
-				child.tests
+				tests
 				.map((t,i)=><div key={i}>
-					<div><Link to={`test/${i+1}`}>№ {+i+1} {t.trMeta?.info}</Link></div>
+					<div><Link to={`test/${i+1}/${t.meta.bookId}`}>№ {+i+1} {t.trMeta?.info}</Link></div>
 				</div>)
 			|| '-нет-'
 			}
 			<div>
 			<button type="button" onClick={async ()=>{
+				const bookId = getGlobalUniqueCode().replace(/[.]/g,'~')
 				setTests(draft=>[...(draft??[]), {
 					meta: {
 						notes: ''
 						, levels: allLevels
 						, period: ''
+						, bookId 
 					}
 					, trMeta: {
 						info: ''
-						, clPass: sha256.hmac(id, login)
 					}
 					, tr: {}
 				}])
-				await later(100)
-				navigate(`test/${tests.length+1}`)
+				navigate(`test/${tests.length+1}/${bookId}`)
 			}}>+ Еще тест</button>
 			</div>
 		</>}
@@ -131,12 +136,16 @@ function TrChild() {
 
 function TrTest() {
 	const navigate = useNavigate()
-	const {id, step} = useParams()
+	const {id, step, bid} = useParams()
 	const idx = +step-1;
-	const {index} = useOutletContext()
+	const {index,login} = useOutletContext()
 	const child = index.children[id]
 	const [hasTests, tests, produceTests] = useLocalState(`tr-tests-${id}`,[])
 	const test = tests?.[idx]
+	if(hasTests && test?.meta?.bookId !== bid) {
+		return "--- deleted ---"
+	}
+	if(!test) return;
 	return <section>
 		<h1>{child.fio}</h1>
 		{!hasTests && '--- wait ---'}
@@ -174,25 +183,78 @@ function TrTest() {
 					</span>)
 				}
 			</div>
+			<hr/>
 			<div>
 				<button type="button"
 					onClick={()=>{
 						navigate('perform/tr')
 					}} 
 					>Заполнить ответы терапевта</button>
-				<button type="button" >Отправить клиенту</button>
-				<button type="button" 
+				<button type="button"
 					onClick={()=>{
-						if(!confirm('и правда удалить')) return;
-						//produceTests(draft=>{
-							// draft.splice(idx,1)
-						// })
+						navigate('perform/cl')
+					}} 
+					>Заполнить ответы за клиента</button>
+				<button type="button" 
+					onClick={()=>{sendToClient(test,id,login)}}
+				>Отправить клиенту (пока тестовый вариант - себе!)</button>
+				<button type="button" 
+					onClick={async ()=>{
+						if(!await confirm('и правда удалить')) return;
+						await produceTests(draft=>{
+							draft.splice(idx,1)
+						})
+						navigate(`/tr/${id}`,{replace:true})
 					}}
 				>Удалить</button>
 			</div>
 		</>}
 	</section>
 }
+
+function TrPerformTest({mode}) {
+	const {id, step, bid} = useParams()
+	const idx = +step-1;
+	const {index} = useOutletContext()
+	const [hasTests, tests, produceTests] = useLocalState(`tr-tests-${id}`,[])
+	const test = tests?.[idx]
+
+	const valSetter = useCallback((q, v) => produceTests(draft=>{
+		draft[idx][mode] ??= {}
+		draft[idx][mode][q.lvl] ??= {}
+		draft[idx][mode][q.lvl][q.part] ??= {}
+		draft[idx][mode][q.lvl][q.part][q.npp] = v 						
+	}),[mode, idx, produceTests])
+
+	if(hasTests && test?.meta?.bookId !== bid) {
+		return "--- deleted ---"
+	}
+
+	return <section>
+		{!test && '--- wait ---'}
+		{test && <QInput meta={test?.meta} value={test[mode]}  valSetter={valSetter} />}
+	</section>
+
+}
+
+async function sendToClient(test, clId, login) {
+	const pass = sha256.hmac(clId, login)
+	const url = new URL(`/cl/${test.meta.bookId}#${pass}`, window.location.href)
+	console.log(url)
+	//MOCK
+	await copyTextToClipboard(url.toString())
+	await setKV(`to-cl-book-${test.meta.bookId}`, test, await customStore())
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    console.log('Text successfully copied to clipboard');
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+  }
+}
+
 
 /*
 	варианты хранения
