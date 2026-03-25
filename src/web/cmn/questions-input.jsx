@@ -1,4 +1,12 @@
-import {useState, useEffect, useCallback} from 'react'
+import {produce} from "immer"
+import {useState, useEffect, useCallback, useMemo} from 'react'
+import {  useParams, useSearchParams } from 'react-router-dom';
+
+import { get as getKV, set as setKV } from 'idb-keyval';
+import {customStore} from 'azlib/common.mjs'
+
+import {useLocalState} from 'azlib/local-db-item.mjs'
+
 import qs from '../data/quests.mjs';
 
 const flat = []
@@ -35,19 +43,54 @@ const bstyle = {
 	, textAlign: "left"
 }
 
-export default function QInput() {
-	const [npp, setNpp] = useState()
-	const arr = flat;
+export default function QInput({role}) {
+	const params = useParams()
+	const book = params?.b ?? '000';
+	
+	let bookName = `book-${book}.${role}`;
+
+
+	const [searchParams, setSearchParams] = useSearchParams();
+	const npp = +searchParams.get('n') || ''
+	const setNpp = useCallback((f,back)=>
+		setSearchParams(prevParams=>{
+			const p = +prevParams.get('n');
+			const n =  typeof f === "function"? f(p): f
+			if(n) prevParams.set('n', n)
+			else  prevParams.delete('n')
+			return prevParams;
+	}, back && {} || {replace: true}),[setSearchParams])
+
+	const [hasResults, results, produceResults] = useLocalState(bookName,
+			{
+				meta:{
+					notes: ''
+					, levels: ["УРОВЕНЬ 1", "УРОВЕНЬ 2", "УРОВЕНЬ 3", "УРОВЕНЬ 4"]
+					, period: ''
+				}
+				, [role]: {}
+			}
+		)
+
+	const levels = results?.meta?.levels;
+	const arr = useMemo(()=>
+			levels 
+			? flat.filter(a=>a.lvl.in(...levels))
+			: flat
+		, [levels]);
 	const q = arr[npp-1];
-	const [results, setResults] = useState({})
-	const k = q && `${q.lvl}.${q.part}.${q.npp}`
-	const r = results[k]
-	const setR = useCallback(v => { setResults(results => ({...results, [k]: v })) }
-			, [setResults, k])
+
+	const r = q && results?.[role]?.[q.lvl]?.[q.part]?.[q.npp];
+	const setR = useCallback(v => produceResults(draft=>{
+								draft[role] ??= {}
+								draft[role][q.lvl] ??= {}
+								draft[role][q.lvl][q.part] ??= {}
+								draft[role][q.lvl][q.part][q.npp] = v 				
+			}), [role, q, produceResults])
 
 	useEffect(()=>{
 		const keydown = e=>{
-			if(!k) return;
+			if(!q) return;
 			console.log(e.key)
 			switch(e.key){
 			case ' ': setR(null); break;
@@ -55,21 +98,25 @@ export default function QInput() {
 			case 'ArrowUp': case '+': case '=': setR('+'); break;
 			case 'ArrowDown': case '-': case '_': setR('-'); break;
 			case 'ArrowLeft': setNpp(n=>n>1? n-1 : n); break;
-			case 'ArrowRight': setNpp(n=>n<arr.length-1? n+1 : n); break;
+			case 'ArrowRight': setNpp(n=>n<arr.length? n+1 : n); break;
 			}
 		}
 		window.addEventListener('keydown', keydown)
 		return ()=> window.removeEventListener('keydown', keydown)
-	},[setNpp, setR, k, arr])
+	},[setNpp, setR, q, arr])
 
 	return <div>
-		{!npp && <div>
-				<button type="button" onClick={()=>{setNpp(1)}}
+		{
+			!hasResults && '--- wait ---'
+		}
+		{ hasResults && npp === '' && <div>
+				<button type="button" onClick={()=>{setNpp(1, true)}}
 						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
 				>Начать</button>
 			</div>
 		}
-		{ npp &&<div>
+		{ hasResults && typeof npp === 'number' &&<div>
+			<div style={{float:"right", marginRight:"1em"}}><button type="button" onClick={()=>setNpp('', true)}>H</button></div>
 			<h6>{q.lvl}</h6>
 			<h4>{q.hdr}</h4>
 			<h3>{q.h}</h3>
@@ -124,10 +171,10 @@ export default function QInput() {
 				{npp>1&&<button type="button" onClick={()=>{setNpp(n=>n-1)}}
 						style={{position:"fixed", left: "1em", bottom: "1em"}}
 					> &lt;-- </button>}
-				<span
+				{npp && <span
 					style={{position:"fixed", bottom: "1em", left:"50%", transform:"translate(-50%,0)"}}
-					>{npp}/{arr.length}</span>
-				{npp<flat.length-1&&<button type="button" onClick={()=>{setNpp(n=>n+1)}}
+					>{npp}/{arr.length}</span>}
+				{npp<flat.length&&<button type="button" onClick={()=>{setNpp(n=>n+1)}}
 						style={{position:"fixed", right: "1em", bottom: "1em"}}
 				> --&gt; </button>}
 			</div>

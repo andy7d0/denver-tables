@@ -105,17 +105,6 @@ export async function getAPIparams() {
 }
 
 
-function roles($uinfo) {
-  const $roles = [];
-  switch($uinfo.sysrole) {
-    case 'admin': $roles['admin'] = true;
-    case 'sysop': $roles['sysop'] = true;
-    case 'staff': $roles['staff'] = true;
-    case 'semistaff': $roles['semistaff'] = true;
-    default: $roles['user'] = true;
-  }
-  return $roles;  
-}
 /**
  *  state:
  *    subscription: key to subscribe on server
@@ -124,7 +113,6 @@ function roles($uinfo) {
 export async function setAuthToken(auth) {
   let [,uinfo] = auth.authorization.match(/Bearer:\s*(.*):/);
   uinfo = JSON.parse(base64decode(uinfo));
-  uinfo.roles = roles(uinfo);
   auth.uinfo = uinfo;
   await setKV('login-state', auth, await customStore())
   broadcast('auth', auth)
@@ -150,7 +138,7 @@ export async function setSavedToken(token) {
 }
 
 export function isLocalServer() {
-  return hostname === '127.1.2.1';  // hardcoded, KISS
+  return hostname === '127.0.0.1' || hostname === 'localhost';  // hardcoded, KISS
 }
 
 export function isProdDomain() {
