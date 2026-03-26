@@ -1,5 +1,5 @@
 import {useEffect, useCallback, useMemo} from 'react'
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 
 import qs from '../data/quests.mjs';
 
@@ -37,7 +37,9 @@ const bstyle = {
 	, textAlign: "left"
 }
 
-export default function QInput({meta, value, valSetter }) {	
+export default function QInput({meta, value, valSetter
+	, commit, backUrl
+	}) {	
 	const [searchParams, setSearchParams] = useSearchParams();
 	const npp = +searchParams.get('n') || ''
 	const setNpp = useCallback((f,back)=>
@@ -64,7 +66,6 @@ export default function QInput({meta, value, valSetter }) {
 
 	useEffect(()=>{
 		const keydown = e=>{
-			if(!q) return;
 			console.log(e.key)
 			switch(e.key){
 			case ' ': setR(null); break;
@@ -82,13 +83,28 @@ export default function QInput({meta, value, valSetter }) {
 	},[setNpp, setR, q, arr])
 
 	return <div>
-		{ !npp && <div>
-				<button type="button" onClick={()=>{setNpp(1, true)}}
-						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
-				>Начать</button>
+		{ !npp && <div style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"
+			, width:"90%"}}>
+				{meta.notes && <div>Указания терапевта:</div>}
+				<pre>
+					{
+						meta.notes
+					}
+				</pre>
+				<div style={{display: "flex", alignItems: "center", justifyContent: "center"}}>
+					<button type="button" onClick={()=>{setNpp(1, true)}}>Начать заполнение</button>
+				</div>
 			</div>
 		}
-		{ npp === arr?.length+1 && <div>
+		{ npp === arr?.length+1 && !commit &&
+			<div>
+				<div type="button" 
+						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
+				><Link to={backUrl}>ВСЕ</Link></div>
+			</div>
+		}
+		{ npp === arr?.length+1 && commit &&
+			<div>
 				<button type="button" 
 						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
 				>Завершить заполнение и отправить результаты</button>

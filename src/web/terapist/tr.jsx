@@ -1,20 +1,17 @@
 import {useState, useEffect, useMemo, useCallback} from 'react'
 import { Routes, Route, Outlet, useOutletContext, useParams, Link, useNavigate } from "react-router-dom"
 
-import {getLoggedState, getGlobalUniqueCode, customStore} from 'azlib/common.mjs' 
+import {getLoggedState, getGlobalUniqueCode} from 'azlib/common.mjs' 
 
-import {useLocalState, syncSave} from 'azlib/local-db-item.mjs'
-
-import {sha256}  from  'js-sha256';
-
-import {set as setKV} from 'idb-keyval';
+import {useLocalState} from 'azlib/local-db-item.mjs'
 
 import {confirm} from 'azlib/components/controls.jsx'
 
 import QInput from '../cmn/questions-input.jsx';
 
-import qs from '../data/quests.mjs';
+import {sendToClient} from '../cmn/exchange.mjs'
 
+import qs from '../data/quests.mjs';
 
 
 export default function TrPage() {
@@ -232,27 +229,11 @@ function TrPerformTest({mode}) {
 
 	return <section>
 		{!test && '--- wait ---'}
-		{test && <QInput meta={test?.meta} value={test[mode]}  valSetter={valSetter} />}
+		{test && <QInput meta={test?.meta} value={test[mode]}  valSetter={valSetter} 
+				backUrl={`/tr/${id}/test/${step}/${bid}`}
+			/>}
 	</section>
 
-}
-
-async function sendToClient(test, clId, login) {
-	const pass = sha256.hmac(clId, login)
-	const url = new URL(`/cl/${test.meta.bookId}#${pass}`, window.location.href)
-	console.log(url)
-	//MOCK
-	await copyTextToClipboard(url.toString())
-	await setKV(`to-cl-book-${test.meta.bookId}`, test, await customStore())
-}
-
-async function copyTextToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    console.log('Text successfully copied to clipboard');
-  } catch (err) {
-    console.error('Failed to copy text: ', err);
-  }
 }
 
 

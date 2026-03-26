@@ -3,8 +3,7 @@ import {  useParams } from 'react-router-dom';
 
 import {useLocalState} from 'azlib/local-db-item.mjs'
 
-import {get as getKV} from 'idb-keyval';
-import {customStore} from 'azlib/common.mjs'
+import {clientRead} from '../cmn/exchange.mjs'
 
 
 import QInput from '../cmn/questions-input.jsx';
@@ -17,7 +16,7 @@ export default function ClientPage() {
 
 	const [hasResults, results, produceResults] = useLocalState(bookName,
 		async key => {
-			const def = await getKV(`to-cl-${key}`, await customStore())
+			const def = await clientRead(bookName, window.initialHash)
 			if(def) return def;
 			return {
 				meta:{
