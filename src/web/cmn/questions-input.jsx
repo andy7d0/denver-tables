@@ -38,7 +38,7 @@ const bstyle = {
 }
 
 export default function QInput({meta, value, valSetter
-	, commit, backUrl
+	, lastPage
 	}) {	
 	const [searchParams, setSearchParams] = useSearchParams();
 	const npp = +searchParams.get('n') || ''
@@ -68,7 +68,7 @@ export default function QInput({meta, value, valSetter
 		const keydown = e=>{
 			console.log(e.key)
 			switch(e.key){
-			case ' ': setR(null); break;
+			case ' ': setR('x'); break;
 			case '/': setR('+/-'); break;
 			case 'ArrowUp': case '+': case '=': setR('+'); break;
 			case 'ArrowDown': case '-': case '_': setR('-'); break;
@@ -96,20 +96,7 @@ export default function QInput({meta, value, valSetter
 				</div>
 			</div>
 		}
-		{ npp === arr?.length+1 && !commit &&
-			<div>
-				<div type="button" 
-						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
-				><Link to={backUrl}>ВСЕ</Link></div>
-			</div>
-		}
-		{ npp === arr?.length+1 && commit &&
-			<div>
-				<button type="button" 
-						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
-				>Завершить заполнение и отправить результаты</button>
-			</div>
-		}
+		{ npp === arr?.length+1 && lastPage}
 		{ !!npp && npp <= arr.length &&<div>
 			<h6>{q.lvl}</h6>
 			<h4>{q.hdr}</h4>
@@ -157,12 +144,12 @@ export default function QInput({meta, value, valSetter
 				</button>
 				</td>
 			</tr>
-			<tr><td><input type="radio" onChange={()=>setR(null)}
-					checked={r === null}
+			<tr><td><input type="radio" onChange={()=>setR('x')}
+					checked={r === 'x'}
 				/>
 				</td>
 				<td>
-				<button type="button" onClick={()=>setR(null)} style={bstyle}>
+				<button type="button" onClick={()=>setR('x')} style={bstyle}>
 				нельзя оценить навык и/или нет возможности проверить
 				</button>
 				</td>

@@ -3,7 +3,7 @@ import {  useParams } from 'react-router-dom';
 
 import {useLocalState} from 'azlib/local-db-item.mjs'
 
-import {clientRead} from '../cmn/exchange.mjs'
+import {clientRead, sendToTr} from '../cmn/exchange.mjs'
 
 
 import QInput from '../cmn/questions-input.jsx';
@@ -38,6 +38,18 @@ export default function ClientPage() {
 
 	return <section>
 		{!hasResults && '--- wait ---'}
-		{hasResults && <QInput meta={results?.meta} value={results?.cl}  valSetter={valSetter} />}
+		{hasResults && <QInput meta={results?.meta} value={results?.cl}  valSetter={valSetter} 
+				lastPage={
+				<div>
+					<button type="button" 
+						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
+						onClick={async ()=>{
+							await sendToTr(results)
+							window.close()
+						}}
+					>Завершить заполнение и отправить результаты</button>
+				</div>
+				}
+		/>}
 	</section>
 }
