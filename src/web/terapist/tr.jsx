@@ -275,6 +275,54 @@ const hcolors = {
 }
 
 function getExcel(child, tests){
+		const rates = {}
+		for(const lvl in qs) {
+			rates[lvl] ??= {}
+			for(const part in qs[lvl]) {
+				rates[lvl][part] ??= {}
+				const obj = qs[lvl][part]
+				for(const maybeQ in obj) {
+					if(maybeQ.match(/^\d/)) {
+						rates[lvl][part][+maybeQ] =
+							tests.map(t=>calc4col(t.tr?.[lvl]?.[part]?.[maybeQ], t.cl?.[lvl]?.[part]?.[maybeQ]))
+					} else {
+						for(const q in obj[maybeQ]) {
+							rates[lvl][part][+q] =
+								tests.map(t=>calc4col(t.tr?.[lvl]?.[part]?.[+q], t.cl?.[lvl]?.[part]?.[+q]))
+						}
+					}
+				}
+			}
+		}
+		for(const lvl in qs) {
+			let lvl_sum = new Array(tests.length).fill(0);
+			for(const part in qs[lvl]) {
+				let part_sum
+				for(const maybeQ in qs[lvl][part]) {
+					if(maybeQ.match(/^\d/)) {
+						part_sum ??= new Array(tests.length).fill(0);
+						for(let i = 0; i< tests.length; ++i){
+							part_sum[i] += rates[lvl][part][+maybeQ][i] ?? 0;
+							lvl_sum[i] += rates[lvl][part][+maybeQ][i] ?? 0;
+						}
+					} else {
+						part_sum ??= {};
+						part_sum[maybeQ] ??= new Array(tests.length).fill(0);
+						for(const q in qs[lvl][part][maybeQ]) {
+							for(let i = 0; i< tests.length; ++i){
+								part_sum[maybeQ][i] += rates[lvl][part][+q][i] ?? 0;
+								lvl_sum[i] += rates[lvl][part][+q][i] ?? 0;
+							}
+						}
+					}					
+				}
+				rates[lvl][part].$ = part_sum;
+			}
+			rates[lvl].$ = lvl_sum;
+		}
+		// console.log(rates)
+		// return;
+
 		const data = [
 				['', `ФИ ребёнка: ${child.fio}`, 	'Терапист, проводящий оценку:']
 		]
@@ -298,12 +346,24 @@ function getExcel(child, tests){
 
 		for(const lvl in qs) {
 			data.push(['', {v:lvl, t:'s'
-											, s: {fill: {fgColor: {rgb: hcolors[lvl] ?? "AAAAAA"}}}} ]); 
+											, s: {fill: {fgColor: {rgb: hcolors[lvl] ?? "AAAAAA"}}}} 
+							, ...rates[lvl].$.map(r=>
+								['','','',
+									{v:r, t:'n', s:{fill: {fgColor: {rgb: hcolors[lvl]}}}}
+								])
+						].flat()); 
 				//headers.push(data.length-1);
 			for(const part in qs[lvl]) {
 				data.push(['',{v:part, t:'s', 
-						s: {fill: {patternType:"solid", fgColor: {rgb:"CCCCCC"}}} }]); 
-					headers.push(data.length-1);
+												s: {fill: {patternType:"solid", fgColor: {rgb:"CCCCCC"}}} }
+							, ...(rates[lvl][part].$.length ?
+								rates[lvl][part].$.map(r=>
+									['','','',
+										{v:r, t:'n', s:{fill: {fgColor: {rgb: "CCCCCC"}}}}
+									])
+								: [])
+					].flat()); 
+					//headers.push(data.length-1);
 				const obj = qs[lvl][part]
 				for(const maybeQ in obj) {
 					if(maybeQ.match(/^\d/)) {
@@ -316,7 +376,13 @@ function getExcel(child, tests){
 									))
 						].flat())
 					} else {
-						data.push(['', maybeQ[0] === '.' ? maybeQ.slice(1) : maybeQ]); headers.push(data.length-1);
+						data.push(['', maybeQ[0] === '.' ? maybeQ.slice(1) : maybeQ
+							, ...rates[lvl][part].$[maybeQ].map(r=>
+								['','','',
+									{v:r, t:'n', s:{fill: {fgColor: {rgb: "CCCCCC"}}}}
+								])
+						]); 
+						//headers.push(data.length-1);
 						for(const q in obj[maybeQ]) {
 							data.push([
 								+q, {v:obj[maybeQ][q].h, t:'s', s:{alignment: {wrapText:true}}}
@@ -347,6 +413,14 @@ function getExcel(child, tests){
 
 		worksheet["B1"].s = {font: {bold: true}}
 		worksheet["C1"].s = {font: {bold: true}}
+
+		worksheet['!freeze'] = {
+		  xSplit: "2",         // Number of columns to the left of the split
+		  ySplit: "3",         // Number of rows above the split
+		  topLeftCell: "C4",   // The top-left cell of the *unfrozen* pane
+		  activePane: "bottomRight", // Which pane is active (optional, typically bottomRight)
+		  state: "frozen"      // Indicates the state is frozen
+		};
 
 		//console.log(worksheet)
 
