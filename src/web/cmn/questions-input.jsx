@@ -82,7 +82,7 @@ export default function QInput({meta, value, valSetter
 		return ()=> window.removeEventListener('keydown', keydown)
 	},[setNpp, setR, q, arr])
 
-	return <div>
+	return <>
 		{ !npp && <div style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"
 			, width:"90%"}}>
 				{meta.notes && <div>Указания терапевта:</div>}
@@ -105,12 +105,14 @@ export default function QInput({meta, value, valSetter
 		</div>}
 			<div
 				style={{position:"fixed"
-					, bottom:"0em"
-					, background: "white"
+					, bottom:"0"
+					, background: "#ccFFFFFF"
 					, height: "12em"
-					, width: 380
+					, width: "100%"
 					, left: "50%"
 					, transform: "translate(-50%,0)"
+					, padding: "0 1ex"
+					, borderRadius: 3
 					}}
 			>
 			{npp && npp<=arr.length && <table style={{width:"100%"}}><tbody>
@@ -155,23 +157,28 @@ export default function QInput({meta, value, valSetter
 				</td>
 			</tr>
 			</tbody></table>}
-			<div style={{position:"absolute", bottom:10, width:"100%"}}>
+			<div style={{position:"absolute", bottom:10, 
+						width:"calc(100% - 2ex)"
+						, display:"flex"
+				    	, justifyContent: "center"
+    					, alignItems: "center"
+    					, gap: 3
+					}}
+			>
 				{npp>=1&&<button type="button" onClick={()=>{setNpp(0,true)}}
-						style={{float:"left"}}
 					> |&lt; </button>}
 				{npp>=1&&<button type="button" onClick={()=>{setNpp(n=>n-1)}}
-						style={{float:"left"}}
 					> &lt;-- </button>}
-				{npp<=arr.length&&<button type="button" onClick={()=>{setNpp(arr.length+1)}}
-						style={{float:"right"}}
-				> &gt;| </button>}
-				{npp<=arr.length&&<button type="button" onClick={()=>{setNpp(n=>n+1)}}
-						style={{float:"right"}}
-				> --&gt; </button>}
+				<span style={{flex:"1 1 1%"}}/>
 				{npp && npp <= arr.length && <span
-					style={{position:"absolute", bottom: 0, left:"50%", transform:"translate(-50%,0)"}}
+					style={{flex:"0 0 0"}}
 					>{npp}/{arr.length}</span>}
+				<span style={{flex:"1 1 1%"}}/>
+				{npp<=arr.length&&<button type="button" onClick={()=>{setNpp(n=>n+1)}}
+				> --&gt; </button>}
+				{npp<=arr.length&&<button type="button" onClick={()=>{setNpp(arr.length+1)}}
+				> &gt;| </button>}
 			</div>
 		</div>
-	</div>
+	</>
 }

@@ -117,6 +117,8 @@ export async function trRead(bookName, clId, login, ivHex) {
 	const textIn = await getKV(`to-tr-${bookName}`, await customStore())
 	//
 
+	if(!textIn) return;
+
 	const uint8In = Uint8Array.fromBase64(textIn)
 
 	const plain = await window.crypto.subtle.decrypt(

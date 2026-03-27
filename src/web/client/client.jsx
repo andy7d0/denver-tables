@@ -36,7 +36,7 @@ export default function ClientPage() {
 		draft.cl[q.lvl][q.part][q.npp] = v 						
 	}),[produceResults])
 
-	return <section>
+	return <main>
 		{!hasResults && '--- wait ---'}
 		{hasResults && <QInput meta={results?.meta} value={results?.cl}  valSetter={valSetter} 
 				lastPage={
@@ -51,5 +51,5 @@ export default function ClientPage() {
 				</div>
 				}
 		/>}
-	</section>
+	</main>
 }

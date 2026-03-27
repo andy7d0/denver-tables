@@ -15,15 +15,16 @@
 }
 
 body {
-  margin: 0;
   display: flex;
   min-width: 320px;
   min-height: 100vh;
+  max-width: 1280px;
 
   /*font-size: 14px;
   color: black;*/
   position: relative;
   margin: 0;
+  padding: 0;
 }
 
 /*
@@ -53,11 +54,12 @@ body {
 }
 
 #bottom-space {
-  height: 1em;
+  height: 0;
   display: none;
 }
 #modals:not(:empty) + * + #bottom-space
 , #transient:not(:empty) + #bottom-space
 {
   display: block;
+  height: 1em;
 }

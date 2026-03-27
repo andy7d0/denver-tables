@@ -22,6 +22,7 @@ export default function TrPage() {
 			<Route index element={<TrIndex/>} />
 			<Route path=":id">
 				<Route index element={<TrChild/>} />
+				<Route path="test/new" element={<CreateTest/>} />
 				<Route path="test/:step/:bid" element={<TrTest/>} />
 				<Route path="test/:step/:bid/perform/tr" element={<TrPerformTest mode="tr" />} />
 				<Route path="test/:step/:bid/perform/cl" element={<TrPerformTest mode="cl" />} />
@@ -50,14 +51,14 @@ function TrLayout() {
 
 	return 	auth && hasIndex 
 		&& <Outlet context={ctx} />
-	|| <div>--- wait ---</div>	
+		|| <div>--- wait ---</div>	
 }
 
 function TrIndex() {
 	const {index, produceIndex} = useOutletContext()
 	const children = Object.values(index?.children??{})
 	const navigate = useNavigate()
-	return <section>
+	return <main>
 		<h1>Дети</h1>
 		{children.length &&	
 			children
@@ -80,7 +81,7 @@ function TrIndex() {
 			navigate(`/tr/${id}`)
 		}}>+ новый ребенок</button>
 		</div>
-	</section>
+	</main>
 }
 
 const allLevels = Object.keys(qs)
@@ -90,17 +91,21 @@ function TrChild() {
 	const {id} = useParams()
 	const {index, produceIndex} = useOutletContext()
 	const child = index.children[id]
-	const [hasTests, tests, setTests] = useLocalState(`tr-tests-${id}`,[])
+	const [hasTests, tests] = useLocalState(`tr-tests-${id}`,[])
 
-	return <section>
-		<h1>Meta</h1>
-		ФИО
-		<input value={child.fio} onChange={e=>
+	return <main>
+		<nav>
+		<Link to="/tr">Дети</Link>	
+		</nav>	
+	
+		<h1>ФИО</h1>
+		<input wide="" value={child.fio} onChange={e=>
 				produceIndex(draft=>{
 						draft.children[id].fio = e.target.value;
 						draft.children[id].lastOp = Date.now();
 					})
 			}/>
+	
 		{!hasTests && '--- wait ---'}
 		{hasTests && <> 
 			<h1>Тесты</h1>
@@ -111,34 +116,18 @@ function TrChild() {
 				</div>)
 			|| '-нет-'
 			}
-			<div>
-			<button type="button" onClick={async ()=>{
-				const bookId = getGlobalUniqueCode().replace(/[.]/g,'~')
-				const iv = window.crypto.getRandomValues(new Uint8Array(12));
-
-				setTests(draft=>[...(draft??[]), {
-					meta: {
-						notes: ''
-						, levels: allLevels
-						, period: ''
-						, bookId 
-						, ivHex: iv.toHex()
-					}
-					, trMeta: {
-						info: ''
-					}
-					, tr: {}
-				}])
-				navigate(`test/${tests.length+1}/${bookId}`)
-			}}>+ Еще тест</button>
-			</div>
-			<div>
+			<br/>
+			<div style={{display:"flex", flexDirection:"column", gap: 10}}>
+			
+				<button type="button" onClick={async ()=>{ navigate('test/new') }}>+ Еще тест</button>
+				
 				<button type="button" onClick={()=>{
-					getExcel(child, tests)
-				}}>Получить эксель</button>
+						getExcel(child, tests)
+					}}>Получить эксель</button>
+
 			</div>
 		</>}
-	</section>
+	</main>
 }
 
 function TrTest() {
@@ -156,7 +145,7 @@ function TrTest() {
 		if(test.cl) return;
 		trRead(`book-${test.meta.bookId}`, id, login, test.meta.ivHex)
 		.then(cl=>
-				produceTests(draft=>{
+				cl && produceTests(draft=>{
 					draft[idx].cl = cl
 				})
 			)
@@ -169,28 +158,32 @@ function TrTest() {
 	
 	if(!tests) return;
 
-	return <section>
-		<h1>{child.fio}</h1>
+	return <main>
+		<nav>
+		<Link to="/tr">Дети</Link>	
+		</nav>	
+		<h1><Link to={`/tr/${id}`}>{child.fio}</Link></h1>
 		{!hasTests && '--- wait ---'}
 		{hasTests && <>
-			<h2>№ {step}</h2>
-			Доп. инфо
-			<input value={test.trMeta.info} onChange={e=>{
+			<h2>Тест № {step}</h2>
+			о тесте<br/>
+			<input wide="" value={test.trMeta.info} onChange={e=>{
 				produceTests(draft=>{
 					draft[idx].trMeta.info = e.target.value
 				})
 			}}/>
 			<hr/>
 			<div>
-				Указания:
-				<textarea value={test.meta.notes} onChange={e=>{
+				Указания для родителей:<br/>
+				<textarea wide="" value={test.meta.notes} onChange={e=>{
 					produceTests(draft=>{
 						draft[idx].meta.notes = e.target.value
 					})					
 				}}/>
 			</div>
 			<div>
-				Нужные уровни
+				Нужные уровни:<br/>
+				<div style={{display:"flex", gap: 10, justifyContent:"space-around"}}>
 				{
 					allLevels.map((l,i)=><span key={l}>
 						[<input type="checkbox" checked={l.in(...test.meta.levels)}
@@ -205,9 +198,10 @@ function TrTest() {
 						/>{i+1}]
 					</span>)
 				}
+				</div>
 			</div>
 			<hr/>
-			<div>
+			<div style={{display:"flex", gap: 10, flexDirection: "column"}}>
 				<button type="button"
 					onClick={()=>{
 						navigate('perform/tr')
@@ -232,7 +226,81 @@ function TrTest() {
 				>Удалить</button>
 			</div>
 		</>}
-	</section>
+	</main>
+}
+
+function CreateTest() {
+	const navigate = useNavigate()
+	const {id} = useParams()
+	const {index, login} = useOutletContext()
+	const child = index.children[id]
+	const [hasTests, tests, produceTests] = useLocalState(`tr-tests-${id}`,[])
+
+	const npp = (tests?.length??0) + 1
+
+	const [step, setStep] = useState('')
+	const [info, setInfo] = useState('')
+	const [levels, setLevels] = useState(allLevels)
+	const [notes, setNotes] = useState('')
+	return hasTests && <main>
+		<h1>Создание анкеты оценки навыков</h1>
+		<h2>Ребенок: {child.fio}</h2>
+		<h3>Тест № {npp}</h3>
+		{ step === '' &&<>
+			Назначение:<br/>
+			<input wide="" value={info} onChange={e=>setInfo(e.target.value)}/>
+			<small>можно не заполнять</small>
+			<br/>
+			<button type="button" onClick={()=>{setStep('levels')}}>Далее</button>
+			<button type="button" onClick={()=>navigate(-1)}>Отмена</button>
+			</>
+		}
+		{ step === 'levels' &&<>
+			Уровни, включаемые в оценку:<br/>
+			<div style={{display:"flex", gap: 10, justifyContent:"space-around"}}>
+			{
+				allLevels.map((l,i)=><span key={l}>
+					[<input type="checkbox" checked={l.in(...levels)}
+						onChange={e=>
+								setLevels(prev=> e.target.checked? [...prev, l]: prev.filter(x=>x!==l))
+						}
+					/>{i+1}]
+				</span>)
+			}
+			</div>
+			<button type="button" onClick={()=>{setStep('')}}>Назад</button>
+			<button type="button" onClick={()=>{setStep('notes')}}>Далее</button>
+			<button type="button" onClick={()=>navigate(-1)}>Отмена</button>
+			</>
+		}
+		{ step === 'notes' &&<>
+			Указания по заполнению:<br/>
+			<textarea wide="" value={notes} onChange={e=>setNotes(e.target.value)}/>
+			<button type="button" onClick={()=>{setStep('levels')}}>Назад</button>
+
+			<button type="button" onClick={()=>{
+
+				const bookId = getGlobalUniqueCode().replace(/[.]/g,'~')
+				const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+				produceTests(draft=>[...(draft??[]), {
+					meta: {
+						notes
+						, levels
+						, bookId 
+						, ivHex: iv.toHex()
+					}
+					, trMeta: {
+						info
+					}
+					, tr: {}
+				}])
+				navigate(`/tr/${id}/test/${npp}/${bookId}`)
+			}}>Создать анкету!</button>
+			<button type="button" onClick={()=>navigate(-1)}>Отмена</button>
+			</>
+		}
+	</main>
 }
 
 function TrPerformTest({mode}) {
@@ -252,7 +320,7 @@ function TrPerformTest({mode}) {
 		return "--- deleted ---"
 	}
 
-	return <section>
+	return <main>
 		{!test && '--- wait ---'}
 		{test && <QInput meta={test?.meta} value={test[mode]}  valSetter={valSetter} 
 				lastPage={
@@ -263,7 +331,7 @@ function TrPerformTest({mode}) {
 					</div>					
 				}
 		/>}
-	</section>
+	</main>
 
 }
 

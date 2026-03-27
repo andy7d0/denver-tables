@@ -1,4 +1,6 @@
-
+* {
+  box-sizing: border-box;
+}
 input, textarea {
   color: var(--main_input_color);
 }

@@ -1,5 +1,11 @@
 #root {
-  max-width: 1280px;
   margin: 0 auto;
+}
+
+#root > main {
+  max-width: 500px;
+  min-height: 100vh;
+  background: #40cbf969;
+  padding: 1ex;
 }
 
