@@ -2,6 +2,7 @@ import {useState, useEffect, useMemo, useCallback} from 'react'
 import { Routes, Route, Outlet, useOutletContext, useParams, Link, useNavigate } from "react-router-dom"
 
 import * as XLSX from 'xlsx-js-style'
+import * as ExcelJS from 'exceljs' 
 
 import {getLoggedState, getGlobalUniqueCode} from 'azlib/common.mjs' 
 
@@ -274,7 +275,7 @@ const hcolors = {
 	, "УРОВЕНЬ 4": 'b3cefb'
 }
 
-function getExcel(child, tests){
+async function getExcel(child, tests){
 		const rates = {}
 		for(const lvl in qs) {
 			rates[lvl] ??= {}
@@ -323,113 +324,114 @@ function getExcel(child, tests){
 		// console.log(rates)
 		// return;
 
-		const data = [
-				['', `ФИ ребёнка: ${child.fio}`, 	'Терапист, проводящий оценку:']
-		]
 
-		data.push([
-			'', ''
-			, ...tests.map((_t,i)=>[{v:`Тест ${i+1}`, t:'s', s:{border:{bottom:'thick'}, alignment: {horizontal: "center"}}}
-						,'','',''])
-		].flat())
-		data.push([
-			'', ''
-			, ...tests.map(()=>[
-					{v:'Наблюдения', t:'s', s: {alignment: {horizontal: "center", wrapText:true}}}
-					,{v:'Информация от родителей', s: {alignment: {horizontal: "center", wrapText:true}}}
-					,{v:'Общая оценка', s: {alignment: {horizontal: "center", wrapText:true}}}
-					,{v:'Сумма', s: {alignment: {horizontal: "center", wrapText:true}}}
-				])
-		].flat())
+		const wb = new ExcelJS.Workbook();
+		const ws = wb.addWorksheet('тесты');
 
-		const headers = []
+		ws.columns = [
+			{width: 4}, {width: 60},
+			, ...tests.map(()=>[{width: 15}, {width: 15}, {width: 15}, {width: 15}])
+		].flat();
+
+		let rn = 1;
+		let row = ws.addRow(['',`ФИ ребёнка: ${child.fio}`, 'Терапист, проводящий оценку:'])
+		row.getCell(2).font = {bold: true}
+		row.getCell(3).font = {bold: true}
+		ws.mergeCells(1,3,1,100)
+
+		row = ws.addRow([
+						'', ''
+			, ...tests.map((_,i)=>[`Тест ${i+1}`,'','',''])
+		].flat()); ++rn;
+		for(let i = 0; i<tests.length; ++i){
+			row.getCell(1+2+i*4).alignment = {horizontal: 'center'};
+			row.getCell(1+2+i*4).border = {bottom:{style:'thick'}};
+			ws.mergeCells(rn, 1+2+i*4, rn, 1+2+i*4+3)
+		}
+
+		row = ws.addRow([
+			'', ''
+			, ...tests.map(()=>['Наблюдения','Информация от родителей','Общая оценка','Сумма'])
+		].flat()); ++rn;
+		for(let i = 0; i<tests.length; ++i){
+			row.getCell(1+2+i*4).alignment = {horizontal: 'center', wrapText:true};
+			row.getCell(1+2+i*4+1).alignment = {horizontal: 'center', wrapText:true};
+			row.getCell(1+2+i*4+2).alignment = {horizontal: 'center', wrapText:true};
+			row.getCell(1+2+i*4+3).alignment = {horizontal: 'center', wrapText:true};
+		}
 
 		for(const lvl in qs) {
-			data.push(['', {v:lvl, t:'s'
-											, s: {fill: {fgColor: {rgb: hcolors[lvl] ?? "AAAAAA"}}}} 
-							, ...rates[lvl].$.map(r=>
-								['','','',
-									{v:r, t:'n', s:{fill: {fgColor: {rgb: hcolors[lvl]}}}}
-								])
-						].flat()); 
-				//headers.push(data.length-1);
+			row = ws.addRow([
+				'', lvl
+				, ...rates[lvl].$.map(r=>['','','', r])
+			].flat()); ++rn;
+			row.getCell(2).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+			for(let i = 0; i<tests.length; ++i){
+				row.getCell(1+2+i*4+3).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+			}
+
 			for(const part in qs[lvl]) {
-				data.push(['',{v:part, t:'s', 
-												s: {fill: {patternType:"solid", fgColor: {rgb:"CCCCCC"}}} }
-							, ...(rates[lvl][part].$.length ?
-								rates[lvl][part].$.map(r=>
-									['','','',
-										{v:r, t:'n', s:{fill: {fgColor: {rgb: "CCCCCC"}}}}
-									])
+				row = ws.addRow([
+					'', part
+					, ...(rates[lvl][part].$.length ?
+								rates[lvl].$.map(r=>['','','', r])
 								: [])
-					].flat()); 
-					//headers.push(data.length-1);
+				].flat()); ++rn;
+				if(rates[lvl][part].$.length) {
+					for(let i = 0; i<tests.length; ++i){
+						row.getCell(1+2+i*4+3).fill = {type: 'pattern', pattern: 'solid'
+							, fgColor: {argb: 'CCCCCC'}}
+					}					
+				}
+
 				const obj = qs[lvl][part]
 				for(const maybeQ in obj) {
 					if(maybeQ.match(/^\d/)) {
 						// simple quest
-						data.push([
-							+maybeQ, {v:obj[maybeQ].h, t:'s', s:{alignment: {wrapText:true}}}
-							,...tests.map(t=>calcCols(
+						row = ws.addRow([
+							+maybeQ, obj[maybeQ].h
+							, ...tests.map(t=>calcCols(
 									t.tr?.[lvl]?.[part]?.[maybeQ]
 									, t.cl?.[lvl]?.[part]?.[maybeQ]
 									))
-						].flat())
+						].flat()); ++rn;
+						row.getCell(2).alignment = {wrapText:true}
 					} else {
-						data.push(['', maybeQ[0] === '.' ? maybeQ.slice(1) : maybeQ
-							, ...rates[lvl][part].$[maybeQ].map(r=>
-								['','','',
-									{v:r, t:'n', s:{fill: {fgColor: {rgb: "CCCCCC"}}}}
-								])
-						]); 
-						//headers.push(data.length-1);
+						row = ws.addRow([
+							'', maybeQ[0] === '.' ? maybeQ.slice(1) : maybeQ
+							, ...rates[lvl][part].$[maybeQ].map(r=>['','','', r])
+						].flat()); ++rn;
+						for(let i = 0; i<tests.length; ++i){
+							row.getCell(1+2+i*4+3).fill = {type: 'pattern', pattern: 'solid'
+								, fgColor: {argb: 'CCCCCC'}}
+						}					
 						for(const q in obj[maybeQ]) {
-							data.push([
-								+q, {v:obj[maybeQ][q].h, t:'s', s:{alignment: {wrapText:true}}}
-									,...tests.map(t=>calcCols(
-										t.tr?.[lvl]?.[part]?.[q]
-										, t.cl?.[lvl]?.[part]?.[q]
+							row = ws.addRow([
+								+q, obj[maybeQ][q].h
+								, ...tests.map(t=>calcCols(
+										t.tr?.[lvl]?.[part]?.[maybeQ]
+										, t.cl?.[lvl]?.[part]?.[maybeQ]
 										))
-								])
+							].flat()); ++rn;
+							row.getCell(2).alignment = {wrapText:true}
 						}
 					}
 				}
 			}
 		}
 
-		const workbook = XLSX.utils.book_new();
-		const worksheet = XLSX.utils.aoa_to_sheet(data);
-		worksheet['!cols'] = [{ wch: 2 }, { wch: 60 }
-			, ...tests.map(()=>[{wch: 15}, {wch: 15}, {wch: 15}, {wch: 15}])
-		].flat();
+		ws.views = [
+		  {state: 'frozen', xSplit: 2, ySplit: 3, topLeftCell: 'C4', activeCell: 'C4'}
+		];
 
-		worksheet['!merges'] = [{s:{r:0, c:2}, e:{r:0, c:100}}];
-		for(const h of headers) {
-		 	worksheet['!merges'].push({s:{r:h, c:1}, e:{r:h, c:100}})
-		}
-		for(let i =0; i< tests.length; ++i) {
-		 	worksheet['!merges'].push({s:{r:1, c:2+i}, e:{r:1, c:2+i+3}})			
-		}
-
-		worksheet["B1"].s = {font: {bold: true}}
-		worksheet["C1"].s = {font: {bold: true}}
-
-		worksheet['!freeze'] = {
-		  xSplit: "2",         // Number of columns to the left of the split
-		  ySplit: "3",         // Number of rows above the split
-		  topLeftCell: "C4",   // The top-left cell of the *unfrozen* pane
-		  activePane: "bottomRight", // Which pane is active (optional, typically bottomRight)
-		  state: "frozen"      // Indicates the state is frozen
-		};
-
-		//console.log(worksheet)
-
-		XLSX.utils.book_append_sheet(workbook, worksheet, 'тесты');
-
-		const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
-
-    const blob = new Blob([s2ab(wbout)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
-    saveBlobToFile(blob, `${child.fio}.xlsx`);
+		const buffer = await wb.xlsx.writeBuffer();
+		const xlsBlob = new Blob([buffer], {
+    	type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+ 		});
+		saveBlobToFile(xlsBlob, `${child.fio}.xlsx`);
+		return;
 }
 
 function calcCols(tr,cl) {

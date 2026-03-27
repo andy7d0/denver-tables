@@ -69,7 +69,7 @@ export default function QInput({meta, value, valSetter
 			console.log(e.key)
 			switch(e.key){
 			case ' ': setR('x'); break;
-			case '/': setR('+/-'); break;
+			case '/': case '.': setR('+/-'); break;
 			case 'ArrowUp': case '+': case '=': setR('+'); break;
 			case 'ArrowDown': case '-': case '_': setR('-'); break;
 			case 'Home': setNpp(0,true); break;
