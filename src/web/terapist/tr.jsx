@@ -1,7 +1,6 @@
 import {useState, useEffect, useMemo, useCallback} from 'react'
 import { Routes, Route, Outlet, useOutletContext, useParams, Link, useNavigate } from "react-router-dom"
 
-import * as XLSX from 'xlsx-js-style'
 import * as ExcelJS from 'exceljs' 
 
 import {getLoggedState, getGlobalUniqueCode} from 'azlib/common.mjs' 
@@ -296,22 +295,19 @@ async function getExcel(child, tests){
 			}
 		}
 		for(const lvl in qs) {
-			let lvl_sum = new Array(tests.length).fill(0);
+			let lvl_sum = Array.from({length: tests.length}).fill(0);
 			for(const part in qs[lvl]) {
-				let part_sum
+				let part_sum = Array.from({length: tests.length}).fill(0);
 				for(const maybeQ in qs[lvl][part]) {
 					if(maybeQ.match(/^\d/)) {
-						part_sum ??= new Array(tests.length).fill(0);
 						for(let i = 0; i< tests.length; ++i){
 							part_sum[i] += rates[lvl][part][+maybeQ][i] ?? 0;
 							lvl_sum[i] += rates[lvl][part][+maybeQ][i] ?? 0;
 						}
 					} else {
-						part_sum ??= {};
-						part_sum[maybeQ] ??= new Array(tests.length).fill(0);
 						for(const q in qs[lvl][part][maybeQ]) {
 							for(let i = 0; i< tests.length; ++i){
-								part_sum[maybeQ][i] += rates[lvl][part][+q][i] ?? 0;
+								part_sum[i] += rates[lvl][part][+q][i] ?? 0;
 								lvl_sum[i] += rates[lvl][part][+q][i] ?? 0;
 							}
 						}
@@ -326,10 +322,10 @@ async function getExcel(child, tests){
 
 
 		const wb = new ExcelJS.Workbook();
-		const ws = wb.addWorksheet('тесты');
+		const ws = wb.addWorksheet('Оценка навыков');
 
 		ws.columns = [
-			{width: 4}, {width: 60},
+			{width: 4}, {width: 60}
 			, ...tests.map(()=>[{width: 15}, {width: 15}, {width: 15}, {width: 15}])
 		].flat();
 
@@ -365,6 +361,7 @@ async function getExcel(child, tests){
 				'', lvl
 				, ...rates[lvl].$.map(r=>['','','', r])
 			].flat()); ++rn;
+			//row.outlineLevel = 1;
 			row.getCell(2).fill = {type: 'pattern', pattern: 'solid'
 					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
 			for(let i = 0; i<tests.length; ++i){
@@ -375,16 +372,15 @@ async function getExcel(child, tests){
 			for(const part in qs[lvl]) {
 				row = ws.addRow([
 					'', part
-					, ...(rates[lvl][part].$.length ?
-								rates[lvl].$.map(r=>['','','', r])
-								: [])
+					, ...rates[lvl].$.map(r=>['','','', r])
 				].flat()); ++rn;
-				if(rates[lvl][part].$.length) {
-					for(let i = 0; i<tests.length; ++i){
-						row.getCell(1+2+i*4+3).fill = {type: 'pattern', pattern: 'solid'
-							, fgColor: {argb: 'CCCCCC'}}
-					}					
-				}
+				row.outlineLevel = 1;
+				row.getCell(2).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: 'CCCCCC'}}
+				for(let i = 0; i<tests.length; ++i){
+					row.getCell(1+2+i*4+3).fill = {type: 'pattern', pattern: 'solid'
+						, fgColor: {argb: 'CCCCCC'}}
+				}					
 
 				const obj = qs[lvl][part]
 				for(const maybeQ in obj) {
@@ -397,16 +393,17 @@ async function getExcel(child, tests){
 									, t.cl?.[lvl]?.[part]?.[maybeQ]
 									))
 						].flat()); ++rn;
+						row.outlineLevel = 1;
+						row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+								, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
 						row.getCell(2).alignment = {wrapText:true}
 					} else {
 						row = ws.addRow([
 							'', maybeQ[0] === '.' ? maybeQ.slice(1) : maybeQ
-							, ...rates[lvl][part].$[maybeQ].map(r=>['','','', r])
 						].flat()); ++rn;
-						for(let i = 0; i<tests.length; ++i){
-							row.getCell(1+2+i*4+3).fill = {type: 'pattern', pattern: 'solid'
-								, fgColor: {argb: 'CCCCCC'}}
-						}					
+						row.outlineLevel = 1;
+						row.getCell(2).fill = {type: 'pattern', pattern: 'solid'
+							, fgColor: {argb: 'CCCCCC'}}
 						for(const q in obj[maybeQ]) {
 							row = ws.addRow([
 								+q, obj[maybeQ][q].h
@@ -415,6 +412,9 @@ async function getExcel(child, tests){
 										, t.cl?.[lvl]?.[part]?.[maybeQ]
 										))
 							].flat()); ++rn;
+							row.outlineLevel = 1;
+							row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+									, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
 							row.getCell(2).alignment = {wrapText:true}
 						}
 					}
@@ -425,6 +425,138 @@ async function getExcel(child, tests){
 		ws.views = [
 		  {state: 'frozen', xSplit: 2, ySplit: 3, topLeftCell: 'C4', activeCell: 'C4'}
 		];
+
+		const ws2 = wb.addWorksheet('Сравнение результатов тестов');
+
+		ws2.columns = [
+			{width: 60}
+			, ...tests.map(()=>[{width: 15}])
+		].flat();
+
+		rn = 1;
+		row = ws2.addRow(['Сравнение оценок тестов ESDM'])
+		ws2.mergeCells(1,1,1,100)
+
+		row = ws2.addRow([
+			'Уровень и область навыков'
+			, ...tests.map((_,i)=>[`Тест ${i+1}`])
+		].flat()); ++rn;
+		row.getCell(1).font = {bold: true}
+
+		for(const lvl in qs) {
+			row = ws2.addRow([
+				lvl
+			].flat()); ++rn;
+			row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+			row.getCell(1).font = {bold: true}
+
+			for(const part in qs[lvl]) {
+				row = ws2.addRow([
+					part
+					, ...rates[lvl].$
+				].flat()); ++rn;
+				row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+				for(let i = 0; i<tests.length; ++i){
+					row.getCell(1+1+i).fill = {type: 'pattern', pattern: 'solid'
+						, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+				}
+			}
+			ws2.addRow([]); ++rn;
+		}
+
+		row	= ws2.addRow(['Общая оценка по уровням:']); ++rn;
+		row.getCell(1).font = {bold: true}
+
+		for(const lvl in qs) {
+			let cnt = 0;
+			for(const part in qs[lvl]) {
+				const obj = qs[lvl][part]
+				for(const maybeQ in obj) {
+					if(maybeQ.match(/^\d/)) {
+						// simple quest
+						++cnt;
+					} else {
+						for(const q in obj[maybeQ]) {
+							++cnt;
+						}
+					}
+				}
+			}
+			row = ws2.addRow([
+				`${lvl} (max ${cnt})`, ...rates[lvl].$
+			].flat()); ++rn;
+			row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+			for(let i = 0; i<tests.length; ++i){
+				row.getCell(1+1+i).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+			}
+		}
+
+
+		row	= ws2.addRow(['Процент освоения уровня:']); ++rn;
+		row.getCell(1).font = {bold: true}
+
+		for(const lvl in qs) {
+			let cnt = 0;
+			for(const part in qs[lvl]) {
+				const obj = qs[lvl][part]
+				for(const maybeQ in obj) {
+					if(maybeQ.match(/^\d/)) ++cnt;
+					else for(const q in obj[maybeQ]) ++cnt;
+				}
+			}
+			row = ws2.addRow([
+				lvl, ...rates[lvl].$.map(r=>r/cnt)
+			].flat()); ++rn;
+			row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+			for(let i = 0; i<tests.length; ++i){
+				row.getCell(1+1+i).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+				row.getCell(1+1+i).numFmt = '0.0%'
+			}
+		}
+
+		ws2.addRow([]); ++rn;
+		row = ws2.addRow([
+			'Уровень и область навыков'
+			, ...tests.map((_,i)=>[`Тест ${i+1}`])
+		].flat()); ++rn;
+		row.getCell(1).font = {bold: true}
+
+		for(const lvl in qs) {
+			row = ws2.addRow([
+				lvl
+			].flat()); ++rn;
+			row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+			row.getCell(1).font = {bold: true}
+
+			for(const part in qs[lvl]) {
+				let cnt = 0;
+				const obj = qs[lvl][part]
+				for(const maybeQ in obj) {
+					if(maybeQ.match(/^\d/)) ++cnt;
+					else for(const q in obj[maybeQ]) ++cnt;
+				}
+				row = ws2.addRow([
+					part
+					, ...rates[lvl].$.map(r=>r/cnt)
+				].flat()); ++rn;
+				row.getCell(1).fill = {type: 'pattern', pattern: 'solid'
+					, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+				for(let i = 0; i<tests.length; ++i){
+					row.getCell(1+1+i).fill = {type: 'pattern', pattern: 'solid'
+						, fgColor: {argb: hcolors[lvl] ?? "AAAAAA"}}
+					row.getCell(1+1+i).numFmt = '0.0%'
+				}
+			}
+			ws2.addRow([]); ++rn;
+		}
+
 
 		const buffer = await wb.xlsx.writeBuffer();
 		const xlsBlob = new Blob([buffer], {
@@ -518,13 +650,6 @@ function calc4col(D5,E5){
 				)
 		);
 	return AK5+AL5;
-}
-
-function s2ab(s) {
-    const buf = new ArrayBuffer(s.length);
-    const view = new Uint8Array(buf);
-    for (let i = 0; i < s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
-    return buf;
 }
 
 
