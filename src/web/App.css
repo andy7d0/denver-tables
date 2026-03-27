@@ -4,8 +4,11 @@
 
 #root > main {
   max-width: 500px;
+  min-width: 350px;
+  width: 100vw;
   min-height: 100vh;
   background: #40cbf969;
   padding: 1ex;
+  position: relative;
 }
 

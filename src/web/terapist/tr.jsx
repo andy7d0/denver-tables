@@ -19,6 +19,8 @@ import {sendToClient, trRead} from '../cmn/exchange.mjs'
 
 import qs from '../data/quests.mjs';
 
+// import {current} from 'immer'
+
 
 export default function TrPage() {
 	return <Routes>
@@ -159,6 +161,8 @@ function TrChild() {
 	const child = index.children[id]
 	const [hasTests, tests] = useLocalState(`tr-tests-${id}`,[])
 
+	if(!child) return '--- deleted ---'
+
 	return <main>
 		<nav>
 		<Link to="/tr">Дети</Link>	
@@ -190,6 +194,14 @@ function TrChild() {
 				<button type="button" onClick={()=>{
 						getExcel(child, tests)
 					}}>Получить эксель</button>
+
+				<button type="button" onClick={async ()=>{
+						if(!await confirm(`и правда удалить всю информация о ${child.fio}`)) return;
+						await produceIndex(draft=>{
+							delete draft.children[id]
+						})
+						navigate(`/tr`,{replace:true})
+				}}>Удалить ребенка и все его тесты</button>
 
 			</div>
 		</>}
@@ -298,7 +310,7 @@ function TrTest() {
 function CreateTest() {
 	const navigate = useNavigate()
 	const {id} = useParams()
-	const {index, login} = useOutletContext()
+	const {index, login, produceIndex} = useOutletContext()
 	const child = index.children[id]
 	const [hasTests, tests, produceTests] = useLocalState(`tr-tests-${id}`,[])
 
@@ -361,6 +373,11 @@ function CreateTest() {
 					}
 					, tr: {}
 				}])
+
+				produceIndex(draft=>{
+						draft.children[id].lastOp = Date.now();
+					})
+
 				navigate(`/tr/${id}/test/${npp}/${bookId}`)
 			}}>Создать анкету!</button>
 			<button type="button" onClick={()=>navigate(-1)}>Отмена</button>

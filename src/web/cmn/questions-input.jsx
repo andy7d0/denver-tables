@@ -104,13 +104,13 @@ export default function QInput({meta, value, valSetter
 			<div><i>{q.t}</i></div>
 		</div>}
 			<div
-				style={{position:"fixed"
-					, bottom:"0"
+				style={{position:"absolute"
+					, top:"100vh"
 					, background: "#ccFFFFFF"
 					, height: "12em"
 					, width: "100%"
 					, left: "50%"
-					, transform: "translate(-50%,0)"
+					, transform: "translate(-50%,-100%)"
 					, padding: "0 1ex"
 					, borderRadius: 3
 					}}
