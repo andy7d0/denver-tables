@@ -40,7 +40,7 @@ export function syncSave() { return seqVar; }
 
 export function useLocalState(key, def, suspend) {
 	const [item, setItem] = useState()
-	const done = item!==undefined;
+	const done = item?.key === key;
 	useEffect(()=>{
 		if(suspend || done) return;
 		seqGet(key)
@@ -49,17 +49,17 @@ export function useLocalState(key, def, suspend) {
 			if(typeof def !== 'function') return def;
 			return def(key) // async compatible
 		})
-		.then(setItem)
+		.then(val=>setItem({val,key}))
 	}, [done, setItem, key, def, suspend])
 
 	const produceItem = useCallback(producer=>{
 			setItem(prev=>{
-				const next = produce(prev, producer)
-				seqSave(key, next)
-				return next
+				const next = produce(prev.val, producer)
+				seqSave(prev.key, next)
+				return {key: prev.key, val: next}
 			})
 			return syncSave();
-		}, [key, setItem])
+		}, [setItem])
 
-	return [done, item, produceItem]
+	return [done, item?.val, produceItem]
 }

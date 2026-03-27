@@ -1,9 +1,13 @@
 import {useState, useEffect, useMemo, useCallback} from 'react'
 import { Routes, Route, Outlet, useOutletContext, useParams, Link, useNavigate } from "react-router-dom"
 
+import {setAuthToken, subscribe, broadcast, getLoggedState, logout, login} from 'azlib/common.mjs'
+import {base64encode} from 'azlib/b64.mjs'
+
+
 import * as ExcelJS from 'exceljs' 
 
-import {getLoggedState, getGlobalUniqueCode} from 'azlib/common.mjs' 
+import {getGlobalUniqueCode} from 'azlib/common.mjs' 
 
 import {useLocalState} from 'azlib/local-db-item.mjs'
 
@@ -31,12 +35,40 @@ export default function TrPage() {
 	</Routes>
 }
 
+/* NOT USED!
+const Uctx = createContext({})
+
+const empty = {}
+
+function UinfoContext({children}) {
+  const [auth, setAuth] = useState()
+  useEffect(()=>{
+    const prev = subscribe('auth', setAuth)
+    return () => subscribe('auth', prev)
+  },[setAuth])
+  useEffect(()=>{
+    getLoggedState().then(st=>{broadcast('auth', st)})
+  }, [])
+  return <Uctx value={auth?.uinfo??empty}>{children}</Uctx>
+}
+
+export function useUinfo() {
+  return useContext(Uctx);
+}
+*/
+
+//{uinfo.login && <button onClick={()=>{logout(navigate)}}>logout</button>}
+
+
 function TrLayout() {
 	const [auth, setAuth] = useState()
-	useEffect(()=>{
-		if(auth) return;
-		getLoggedState().then(setAuth) 
-	}, [auth, setAuth])
+  useEffect(()=>{
+    const prev = subscribe('auth', setAuth)
+    return () => subscribe('auth', prev)
+  },[setAuth])
+  useEffect(()=>{
+    getLoggedState().then(st=>{broadcast('auth', st)})
+  }, [])
 
 	const login = auth?.uinfo?.login
 
@@ -46,13 +78,44 @@ function TrLayout() {
 		, !auth
 		)
 
-
 	const ctx = useMemo(()=>({index,produceIndex,login}), [index,produceIndex,login])
 
-	return 	auth && hasIndex 
+	return 	!login && <main><LoginPage/></main>
+		|| login && hasIndex 
 		&& <Outlet context={ctx} />
 		|| <div>--- wait ---</div>	
 }
+
+function LoginPage() {
+  const [err, setErr] = useState()
+  const navigate = useNavigate()
+  return <div style={{position:"fixed", left:"50%", top:"50%", transform:"translate(-50%,-50%)"}}>
+    <form onSubmit={async (event)=> {
+      event.preventDefault();
+      setErr(null)
+      const data = new FormData(event.target);
+      const obj = Object.fromEntries(data.entries())
+      try {
+        const uinfo = base64encode(JSON.stringify({login: data.get('login')}))
+        await setAuthToken({
+          authorization: `Bearer: ${uinfo}:-`, 
+          pass: data.get('pass')
+        });
+      } catch(error) {
+          console.log(error)
+          if(typeof error === 'string') setErr(error)        
+      }
+    }} >
+    Login: <input name="login" />
+    <br/>
+    Pass: <input name="pass" type="password" />
+    <br/>
+    <button>OK</button>
+    {err}
+    </form>
+  </div>
+}
+
 
 function TrIndex() {
 	const {index, produceIndex} = useOutletContext()
@@ -81,6 +144,9 @@ function TrIndex() {
 			navigate(`/tr/${id}`)
 		}}>+ новый ребенок</button>
 		</div>
+		<button type="button" onClick={()=>logout(navigate)}
+				style={{position:"fixed", right:"1em", bottom:"1em"}}
+			>Выйти</button>
 	</main>
 }
 
