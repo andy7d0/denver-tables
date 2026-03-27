@@ -37,7 +37,7 @@ const bstyle = {
 	, textAlign: "left"
 }
 
-export default function QInput({meta, value, valSetter
+export default function QInput({meta, value, valSetter, readOnly
 	, lastPage
 	}) {	
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -62,7 +62,7 @@ export default function QInput({meta, value, valSetter
 	const q = arr[npp-1];
 
 	const r = q && value?.[q.lvl]?.[q.part]?.[q.npp];
-	const setR = useCallback(v => valSetter(q,v), [valSetter, q])
+	const setR = useCallback(v => !readOnly && valSetter(q,v), [valSetter, q, readOnly])
 
 	useEffect(()=>{
 		const keydown = e=>{
@@ -80,10 +80,14 @@ export default function QInput({meta, value, valSetter
 		}
 		window.addEventListener('keydown', keydown)
 		return ()=> window.removeEventListener('keydown', keydown)
-	},[setNpp, setR, q, arr])
+	},[setNpp, setR, q, arr, readOnly])
 
 	return <>
-		{ !npp && <div style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"
+		{readOnly && <div style={{color:"green"}}>Анкета успешно отправлена</div>}
+		{ !npp && <div style={{position:"absolute"
+				, top: "calc( 50% - 6em )"
+				, left: "50%"
+				, transform: "translate(-50%, -50%)"
 			, width:"90%"}}>
 				{meta.notes && <div>Указания терапевта:</div>}
 				<pre>
@@ -91,9 +95,9 @@ export default function QInput({meta, value, valSetter
 						meta.notes
 					}
 				</pre>
-				<div style={{display: "flex", alignItems: "center", justifyContent: "center"}}>
+				{!readOnly && <div style={{display: "flex", alignItems: "center", justifyContent: "center"}}>
 					<button type="button" onClick={()=>{setNpp(1, true)}}>Начать заполнение</button>
-				</div>
+				</div>}
 			</div>
 		}
 		{ npp === arr?.length+1 && lastPage}
@@ -116,7 +120,7 @@ export default function QInput({meta, value, valSetter
 					}}
 			>
 			{npp && npp<=arr.length && <table style={{width:"100%"}}><tbody>
-			<tr><td><input type="radio" onChange={()=>setR('+')}
+			<tr><td><input type="radio" onChange={()=>setR('+')} readOnly={readOnly}
 					checked={r === '+'}
 				/> 
 				</td>
@@ -126,7 +130,7 @@ export default function QInput({meta, value, valSetter
 				</button>
 				</td>
 			</tr>
-			<tr><td><input type="radio" onChange={()=>setR('+/-')}
+			<tr><td><input type="radio" onChange={()=>setR('+/-')} readOnly={readOnly}
 					checked={r === '+/-'}
 				/> 
 				</td>
@@ -136,7 +140,7 @@ export default function QInput({meta, value, valSetter
 				</button>
 				</td>
 			</tr>
-			<tr><td><input type="radio" onChange={()=>setR('-')}
+			<tr><td><input type="radio" onChange={()=>setR('-')} readOnly={readOnly}
 					checked={r === '-'}
 				/> 
 				</td>
@@ -146,7 +150,7 @@ export default function QInput({meta, value, valSetter
 				</button>
 				</td>
 			</tr>
-			<tr><td><input type="radio" onChange={()=>setR('x')}
+			<tr><td><input type="radio" onChange={()=>setR('x')} readOnly={readOnly}
 					checked={r === 'x'}
 				/>
 				</td>

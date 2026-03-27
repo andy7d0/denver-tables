@@ -38,14 +38,20 @@ export default function ClientPage() {
 
 	return <main>
 		{!hasResults && '--- wait ---'}
-		{hasResults && <QInput meta={results?.meta} value={results?.cl}  valSetter={valSetter} 
+		{hasResults && <QInput 
+				meta={results?.meta}
+				readOnly={results?.meta?.clDone}
+				value={results?.cl}  
+				valSetter={valSetter} 
 				lastPage={
-				<div>
+				!results?.meta?.clDone && <div>
 					<button type="button" 
-						style={{position:"fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}}
+						style={{position:"absolute", 
+								top: "calc( 50% - 6em )"
+								, left: "50%", transform: "translate(-50%, -50%)"}}
 						onClick={async ()=>{
 							await sendToTr(results)
-							window.close()
+							produceResults(draft=>{draft.meta.clDone = true;})
 						}}
 					>Завершить заполнение и отправить результаты</button>
 				</div>
