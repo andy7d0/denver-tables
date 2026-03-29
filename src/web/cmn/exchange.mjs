@@ -2,6 +2,30 @@ import {sha256}  from  'js-sha256';
 import {get as getKV, set as setKV} from 'idb-keyval';
 import {customStore} from 'azlib/common.mjs'
 
+const MOCK_API = {
+	sendMail: (link) => { window.open(link, "_blank") }
+	, performRegister: async (login, fileData) =>{	
+			const cs = await customStore(login)
+			if(await getKV('key-file',cs)) return false;
+			await setKV('key-file', fileData, cs)
+			return true;
+	}
+	, tryLogin: async (login) => {
+			const cs = await customStore(login)
+			return await getKV('key-file', cs) ?? ''
+	}
+	, sendToClient: async (fname, fileData) => setKV(fname, fileData, await customStore())
+	, clientRead: async fname => getKV(fname, await customStore())
+	, sendToTr: async (fname, fileData) => setKV(fname, fileData, await customStore())
+	, trRead: async fname => getKV(fname, await customStore())
+}
+
+// sendToClient checks if sender is tr and file ?
+// sendToTr ???
+
+
+const uAPI = MOCK_API
+
 function kfPass(login,pass) {
 	const kf_pass = sha256(sha256.hmac(login,pass),'key-file-pass') //FIXME: pdfkb or friends
 	return window.crypto.subtle.importKey('raw'
@@ -27,26 +51,18 @@ export async function registerLink(login,pass) {
 
 	const encLogin = (new TextEncoder).encode(login)
 
-	//MOCK, send mail instead
-	return new URL(`/register/${encLogin.toHex()}~${iv.toHex()}~${new Uint8Array(chipher).toHex()}`, window.location.href);
+	return uAPI.sendMail(new URL(`/register/${encLogin.toHex()}~${iv.toHex()}~${new Uint8Array(chipher).toHex()}`, window.location.href));
 }
 
 export async function performRegister(link) {
 	const [loginHex,ivHex,chipherHex] = link.split('~')
 	const login = (new TextDecoder).decode(Uint8Array.fromHex(loginHex))
-	const cs = await customStore(login)
-	//MOCK
-	if(await getKV('key-file',cs)) return false;
-	await setKV('key-file', `${ivHex}.${chipherHex}`, cs)
-	return true;
+	return uAPI.performRegister(login, `${ivHex}.${chipherHex}`)
 }
 
 export async function tryLogin(login,pass){
 	
-	// MOCK
-	const cs = await customStore(login)
-	let kf = await getKV('key-file', cs) ?? ''
-	// !MOCK
+	const kf = await uAPI.tryLogin(login)
 
 	const [ivHex = "", textIn = ""] = kf.split('.');
 
@@ -88,8 +104,7 @@ export async function sendToClient(test, clId, login) {
 			, msg
 		)
 
-	//MOCK
-	await setKV(`to-cl-book-${test.meta.bookId}`, new Uint8Array(chipher).toBase64(), await customStore())
+	await uAPI.sendToClient(`to-cl-book-${test.meta.bookId}`, new Uint8Array(chipher).toBase64())
 }
 
 
@@ -106,9 +121,7 @@ export async function clientRead(bookName, hashFragment) {
 		, ['encrypt','decrypt'])
 
 	
-	//MOCK
-	const textIn = await getKV(`to-cl-${bookName}`, await customStore())
-	//
+	const textIn = await uAPI.clientRead(`to-cl-${bookName}`)
 
 	const plain = await window.crypto.subtle.decrypt(
 			{ name: "AES-GCM", iv }
@@ -152,8 +165,7 @@ export async function sendToTr(test) {
 			, msg
 		)
 
-	//MOCK
-	await setKV(`to-tr-book-${test.meta.bookId}`, new Uint8Array(chipher).toBase64(), await customStore())
+	await uAPI.sendToTr(`to-tr-book-${test.meta.bookId}`, new Uint8Array(chipher).toBase64(), await customStore())
 }
 
 
@@ -168,9 +180,7 @@ export async function trRead(bookName, clId, login, ivHex) {
 		, ['encrypt','decrypt'])
 
 	
-	//MOCK
-	const textIn = await getKV(`to-tr-${bookName}`, await customStore())
-	//
+	const textIn = await uAPI.trRead(`to-tr-${bookName}`)
 
 	if(!textIn) return;
 

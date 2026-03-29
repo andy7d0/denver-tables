@@ -107,15 +107,19 @@ function LoginPage() {
           setErr('неверное имя или пароль')        
       }
     }} >
-    Login: <input name="login" />
+    Логин: <input name="login" />
     <br/>
-    Pass: <input name="pass" type="password" />
+    пароль: <input name="pass" type="password" />
     <br/>
+    <br/>
+    <br/>
+    <div style={{display:"flex", flexDirection:"column", gap: 10, }}>
     <button>Войти</button>
     <div style={{color:"red"}}>
     {err}
  		</div>
  		<button type="button" onClick={()=>{setErr(null); setReg(true)}}>Зарегистрироваться</button>
+ 		</div>
     </form>}
     {reg && <form
     onSubmit={async (event)=> {
@@ -129,18 +133,23 @@ function LoginPage() {
       	setErr('Пароли не совпадают')
       	return;
       }
-    	const link = await registerLink(login, pass)
-    	window.open(link,'_blank')
+    	await registerLink(login, pass)
     }}>
-    Login: <input name="login" />
+    Логин: <input name="login" />
     <br/>
-    Pass: <input name="pass" type="password" />
+    пароль: <input name="pass" type="password" />
     <br/>
-    Pass: <input name="pass2" type="password" />
+    пароль еще раз: <input name="pass2" type="password" />
     <br/>
+    <br/>
+    <br/>
+    <br/>
+    <div style={{display:"flex", flexDirection:"column", gap: 10, }}>
     <button>Зарегистрироваться</button>
     <div style={{color:"red"}}>
     {err}
+ 		</div>
+ 		<button type="button" onClick={()=>{setReg()}}>Войти</button>
  		</div>
     </form>}
   </div>

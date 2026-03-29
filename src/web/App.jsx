@@ -11,7 +11,8 @@ import './App.css';
 function DefApp() {
   return (
     <div className="App">
-      <h1>Маленикая програмка работы с ESDM тестированием</h1>
+      <br/><br/><br/>
+      <h1><center>Маленькая програмка работы с ESDM тестированием</center></h1>
       <br/><br/><br/><br/>
       <center><Link to="/tr">Войти</Link></center>
     </div>
