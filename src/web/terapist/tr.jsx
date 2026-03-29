@@ -1,8 +1,7 @@
 import {useState, useEffect, useMemo, useCallback} from 'react'
 import { Routes, Route, Outlet, useOutletContext, useParams, Link, useNavigate } from "react-router-dom"
 
-import {setAuthToken, subscribe, broadcast, getLoggedState, logout, login} from 'azlib/common.mjs'
-import {base64encode} from 'azlib/b64.mjs'
+import {setAuthToken, subscribe, broadcast, getLoggedState} from 'azlib/common.mjs'
 
 
 import * as ExcelJS from 'exceljs' 
@@ -15,7 +14,7 @@ import {confirm} from 'azlib/components/controls.jsx'
 
 import QInput from '../cmn/questions-input.jsx';
 
-import {sendToClient, trRead} from '../cmn/exchange.mjs'
+import {tryLogin, registerLink, performRegister, sendToClient, trRead} from '../cmn/exchange.mjs'
 
 import qs from '../data/quests.mjs';
 
@@ -73,14 +72,11 @@ function TrLayout() {
   }, [])
 
 	const login = auth?.uinfo?.login
+	const ukey = auth?.uinfo?.ukey
 
-	const [hasIndex, index, produceIndex] = 
-		useLocalState(`index-${login}`
-		, {}
-		, !auth
-		)
+	const [hasIndex, index, produceIndex] = useLocalState(`index`, {}, !auth)
 
-	const ctx = useMemo(()=>({index,produceIndex,login}), [index,produceIndex,login])
+	const ctx = useMemo(()=>({index,produceIndex,login,ukey}), [index,produceIndex,login,ukey])
 
 	return 	!login && <main><LoginPage/></main>
 		|| login && hasIndex 
@@ -89,35 +85,77 @@ function TrLayout() {
 }
 
 function LoginPage() {
+	const [reg, setReg] = useState()
   const [err, setErr] = useState()
   const navigate = useNavigate()
-  return <div style={{position:"fixed", left:"50%", top:"50%", transform:"translate(-50%,-50%)"}}>
-    <form onSubmit={async (event)=> {
+  return <div style={{position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)"}}>
+    {!reg && <form onSubmit={async (event)=> {
       event.preventDefault();
       setErr(null)
       const data = new FormData(event.target);
       const obj = Object.fromEntries(data.entries())
       try {
-        const uinfo = base64encode(JSON.stringify({login: data.get('login')}))
+      	const login = data.get('login')
+      	const ukey = await tryLogin(login, data.get('pass'))
         await setAuthToken({
-          authorization: `Bearer: ${uinfo}:-`, 
-          pass: data.get('pass')
+          authorization: `Bearer: -:-`,
+          uinfo: {login, ukey}
         });
       } catch(error) {
           console.log(error)
-          if(typeof error === 'string') setErr(error)        
+          //if(typeof error === 'string') setErr(error)
+          setErr('неверное имя или пароль')        
       }
     }} >
     Login: <input name="login" />
     <br/>
     Pass: <input name="pass" type="password" />
     <br/>
-    <button>OK</button>
+    <button>Войти</button>
+    <div style={{color:"red"}}>
     {err}
-    </form>
+ 		</div>
+ 		<button type="button" onClick={()=>{setErr(null); setReg(true)}}>Зарегистрироваться</button>
+    </form>}
+    {reg && <form
+    onSubmit={async (event)=> {
+      event.preventDefault();
+      setErr(null)
+      const data = new FormData(event.target);
+      const obj = Object.fromEntries(data.entries())
+      const login = data.get('login')
+      const pass = data.get('pass')
+      if(pass !== data.get('pass2')) {
+      	setErr('Пароли не совпадают')
+      	return;
+      }
+    	const link = await registerLink(login, pass)
+    	window.open(link,'_blank')
+    }}>
+    Login: <input name="login" />
+    <br/>
+    Pass: <input name="pass" type="password" />
+    <br/>
+    Pass: <input name="pass2" type="password" />
+    <br/>
+    <button>Зарегистрироваться</button>
+    <div style={{color:"red"}}>
+    {err}
+ 		</div>
+    </form>}
   </div>
 }
 
+export function TrRegister() {
+	const {link} = useParams()
+	const [st,setSt] = useState()
+	useEffect(()=>{
+		performRegister(link).then(setSt)
+	}, [setSt,link])
+	return st === undefined && <div>--- wait ---</div>
+				|| st && <div>зарегистрировано! <Link to='/tr'>Войти</Link></div>
+				|| <div>--- уже есть такой пользователь! <Link to='/tr'>Войти</Link></div>
+}
 
 function TrIndex() {
 	const {index, produceIndex} = useOutletContext()
@@ -146,7 +184,7 @@ function TrIndex() {
 			navigate(`/tr/${id}`)
 		}}>+ новый ребенок</button>
 		</div>
-		<button type="button" onClick={()=>logout(navigate)}
+		<button type="button" onClick={()=>{setAuthToken(null); navigate('/')} }
 				style={{position:"fixed", right:"1em", bottom:"1em"}}
 			>Выйти</button>
 	</main>
@@ -182,7 +220,9 @@ function TrChild() {
 			{tests?.length &&
 				tests
 				.map((t,i)=><div key={i}>
-					<div><Link to={`test/${i+1}/${t.meta.bookId}`}>№ {+i+1} {t.trMeta?.info}</Link></div>
+					<div><Link to={`test/${i+1}/${t.meta.bookId}`}
+						style={{fontWeight:(t.cl?'normal':'bold')}}
+					>№ {+i+1} {t.trMeta?.info}</Link></div>
 				</div>)
 			|| '-нет-'
 			}
@@ -289,7 +329,12 @@ function TrTest() {
 					onClick={()=>{
 						navigate('perform/cl')
 					}} 
-					>Заполнить ответы за клиента</button>
+					>Заполнить ответы за клиента
+						<br/>
+						({!test.cl && <b>ответы клиента получены</b>
+							|| <i>клиент еще не заполнил анкету</i>
+						})
+				</button>
 				<button type="button" 
 					onClick={()=>{sendToClient(test,id,login)}}
 				>Отправить клиенту (пока тестовый вариант - себе!)</button>

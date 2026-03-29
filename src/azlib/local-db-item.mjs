@@ -2,7 +2,7 @@ import {produce} from "immer"
 import {useState, useEffect, useCallback} from 'react'
 
 import { get as getKV, set as setKV } from 'idb-keyval';
-import {customStore} from './common.mjs'
+import {userStore, ukeyEncode, ukeyDecode} from './common.mjs'
 
 
 let seqVar = Promise.resolve()
@@ -13,11 +13,11 @@ export function seqGet(key) {
 	console.log(`ask get ${key}`)
 	return seqVar = seqVar
 			.then(async ()=>{
-				console.log(`get ${key}`, in_get); 
+				//console.log(`get ${key}`, in_get); 
 				in_get = true; 
-				const cs = await customStore();
-				const r = await getKV(key, cs);
-				console.log(`got ${key}`, r); 
+				const cs = await userStore();
+				const r = await ukeyDecode(await getKV(key, cs));
+				//console.log(`got ${key}`, r); 
 				in_get = false; 
 				return r;
 			})
@@ -27,10 +27,10 @@ export function seqSave(key, val) {
 	console.log(`ask set ${key}`)
 	return seqVar = seqVar
 			.then(async ()=>{
-				console.log(`set ${key}`);
-				const cs = await customStore();
-				const r = await setKV(key, val, cs);
-				console.log(`setted ${key}`); 
+				//console.log(`set ${key}`);
+				const cs = await userStore();
+				const r = await setKV(key, await ukeyEncode(val), cs);
+				//console.log(`setted ${key}`); 
 				return r;
 			});
 }

@@ -30,15 +30,14 @@ async function branch_from_header() {
 console.log(`hostname: ${hostname}`);
 
 export function getCurrentBranch() {
-  let branch = isLocalServer() && 'debug'
+  return isLocalServer() && 'debug'
     || !isDevServer() && 'production'
     || currentBranch 
     ;
-  return branch;
 }
 
-export async function DB() {
-  return openDB(`${getCurrentBranch()}.app`, 1, {
+export async function DB(prefix) {
+  return openDB(`${prefix??''}/${getCurrentBranch()}.app`, 1, {
   upgrade(db, oldVersion, _newVersion, _transaction, _event) {
     /* eslint-disable-next-line default-case */
     //console.log(oldVersion, newVersion)
@@ -66,8 +65,8 @@ export async function DB() {
 })
 };
 
-export async function customStore() {
-  let db = unwrap(await DB());
+export async function customStore(prefix) {
+  let db = unwrap(await DB(prefix));
   return (txMode, callback) => 
           callback(db.transaction('keyval', txMode).objectStore('keyval'))
 }
@@ -75,21 +74,6 @@ export async function customStore() {
 /**
  * subscribe to login state changed!
  */
-
-export async function login(func) {
-  const r = await func();
-  if(!r) {
-    console.log('auth error');
-    throw 'auth error';
-  }
-  return r;
-}
-
-export async function logout(navigate){
-  await delKV('login-state', await customStore())
-  broadcast('auth', null)
-  navigate('/')
-}
 
 export async function getLoggedState() {
   return await getKV('login-state', await customStore()) // use local (per branch) store
@@ -104,6 +88,54 @@ export async function getAPIparams() {
         }
 }
 
+export async function userStore() {
+  const ls = await getLoggedState()
+  return customStore(ls?.uinfo?.login??'')
+}
+async function userUkey() {
+  const ls = await getLoggedState()
+  return ls?.uinfo?.ukey
+}
+
+export async function ukeyEncode(data) {
+  data = JSON.stringify(data)
+  const ukey = await userUkey()
+
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const chipher = await window.crypto.subtle.encrypt(
+      { name: "AES-GCM", 
+        iv 
+      }
+      , ukey
+      , (new TextEncoder).encode(data)
+    )
+
+  return `${iv.toHex()}~${new Uint8Array(chipher).toBase64()}`
+}
+
+export async function ukeyDecode(data) {
+  if(!data) return data;
+  const ukey = await userUkey()
+  const [ivHex, b64data] = data.split('~')
+
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const plain = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", 
+        iv: Uint8Array.fromHex(ivHex)
+      }
+      , ukey
+      , Uint8Array.fromBase64(b64data)
+    )
+
+  return JSON.parse((new TextDecoder).decode(plain))
+}
+
+  // const plain = await window.crypto.subtle.decrypt(
+  //     { name: "AES-GCM", iv: Uint8Array.fromHex(ivHex) }
+  //     , await kfPass(login,pass)
+  //     , Uint8Array.fromHex(textIn)
+  //   )
+
 
 /**
  *  state:
@@ -111,31 +143,14 @@ export async function getAPIparams() {
  *    authorization: header to send with requests
  */
 export async function setAuthToken(auth) {
-  let [,uinfo] = auth.authorization.match(/Bearer:\s*(.*):/);
-  uinfo = JSON.parse(base64decode(uinfo));
-  auth.uinfo = uinfo;
-  await setKV('login-state', auth, await customStore())
+  if(!auth) {
+    await delKV('login-state', await customStore())
+  } else {
+    await setKV('login-state', auth, await customStore())
+  }
   broadcast('auth', auth)
 }
 
-
-// called before impersonate
-// or to revert to (in this case returns saved token)
-export async function setSavedToken(token) {
-  const store = await customStore();
-  if(token) {
-    await updateKV('login-state'
-      , prev => ({...prev, saved: token})
-      , store)
-  }
-  else {
-    const t = getKV('login-state', store)
-    if(t.saved) {
-      await updateKV('login-state', t.saved, store)  
-      broadcast('auth', t.saved)
-    }
-  }
-}
 
 export function isLocalServer() {
   return hostname === '127.0.0.1' || hostname === 'localhost';  // hardcoded, KISS

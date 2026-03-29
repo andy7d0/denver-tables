@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, createContext, useContext, useEffect } from '
 import { BrowserRouter as Router, Routes,Route, Link, useNavigate} from "react-router-dom"
 
 import ClientPage from './client/client.jsx'
-import TrPage from './terapist/tr.jsx'
+import TrPage, {TrRegister} from './terapist/tr.jsx'
 
 // eslint-disable-next-line no-unassigned-import
 import './App.css';
@@ -23,6 +23,7 @@ function App() {
     <Router>
     <Routes>
       <Route path="/" element={<DefApp/>} />
+      <Route path='/register/:link' element={<TrRegister/>} />
       <Route path="/cl/:b?" element={<ClientPage/>} />
       <Route path="/tr/*" element={<TrPage/>} />
     </Routes>

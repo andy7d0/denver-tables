@@ -120,7 +120,7 @@ export default function QInput({meta, value, valSetter, readOnly
 					}}
 			>
 			{npp && npp<=arr.length && <table style={{width:"100%"}}><tbody>
-			<tr><td><input type="radio" onChange={()=>setR('+')} readOnly={readOnly}
+			<tr><td>+</td><td><input type="radio" onChange={()=>setR('+')} readOnly={readOnly}
 					checked={r === '+'}
 				/> 
 				</td>
@@ -130,7 +130,7 @@ export default function QInput({meta, value, valSetter, readOnly
 				</button>
 				</td>
 			</tr>
-			<tr><td><input type="radio" onChange={()=>setR('+/-')} readOnly={readOnly}
+			<tr><td>±</td><td><input type="radio" onChange={()=>setR('+/-')} readOnly={readOnly}
 					checked={r === '+/-'}
 				/> 
 				</td>
@@ -140,7 +140,7 @@ export default function QInput({meta, value, valSetter, readOnly
 				</button>
 				</td>
 			</tr>
-			<tr><td><input type="radio" onChange={()=>setR('-')} readOnly={readOnly}
+			<tr><td>-</td><td><input type="radio" onChange={()=>setR('-')} readOnly={readOnly}
 					checked={r === '-'}
 				/> 
 				</td>
@@ -150,7 +150,7 @@ export default function QInput({meta, value, valSetter, readOnly
 				</button>
 				</td>
 			</tr>
-			<tr><td><input type="radio" onChange={()=>setR('x')} readOnly={readOnly}
+			<tr><td>x</td><td><input type="radio" onChange={()=>setR('x')} readOnly={readOnly}
 					checked={r === 'x'}
 				/>
 				</td>
