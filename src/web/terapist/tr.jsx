@@ -10,7 +10,7 @@ import {getGlobalUniqueCode} from 'azlib/common.mjs'
 
 import {useLocalState} from 'azlib/local-db-item.mjs'
 
-import {confirm} from 'azlib/components/controls.jsx'
+import {confirm, alert} from 'azlib/components/controls.jsx'
 
 import QInput from '../cmn/questions-input.jsx';
 
@@ -74,7 +74,7 @@ function TrLayout() {
 	const login = auth?.uinfo?.login
 	const ukey = auth?.uinfo?.ukey
 
-	const [hasIndex, index, produceIndex] = useLocalState(`index`, {}, !auth)
+	const [hasIndex, index, produceIndex] = useLocalState(`index-${login}`, {}, !auth)
 
 	const ctx = useMemo(()=>({index,produceIndex,login,ukey}), [index,produceIndex,login,ukey])
 
@@ -340,12 +340,21 @@ function TrTest() {
 					}} 
 					>Заполнить ответы за клиента
 						<br/>
-						({!test.cl && <b>ответы клиента получены</b>
-							|| <i>клиент еще не заполнил анкету</i>
+						({!!test.cl && <b>ответы клиента получены</b>
+							|| <i>клиент еще не заполнил или не прислал анкету</i>
 						})
 				</button>
 				<button type="button" 
-					onClick={()=>{sendToClient(test,id,login)}}
+					onClick={async ()=>{
+						await sendToClient(test,id,login)
+						await alert(<>
+							Сылка на анкету скопирована в буфер обмена
+							<br/>
+							отправьте ее клиенту любым удобным спсобом,
+							<br/>
+							например, через мессенджер или e-mail
+							</>)
+				}}
 				>Отправить клиенту (пока тестовый вариант - себе!)</button>
 				<button type="button" 
 					onClick={async ()=>{
