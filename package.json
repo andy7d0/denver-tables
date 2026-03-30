@@ -3,14 +3,12 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "rspack dev",
     "lint": "oxlint",
     "compose": "./dev/scripts/compose.sh",
     "compose-run": "./dev/scripts/compose.sh run --remove-orphans",
     "up": "./dev/scripts/compose.sh up",
     "init-project": "./dev/scripts/init-project.sh",
     "build": "./dev/scripts/build.sh",
-    "go": "./dev/scripts/compose.sh run --remove-orphans  --rm -q --entrypoint go ext",
     "php": "./dev/scripts/compose.sh run --remove-orphans  --rm -q"
   },
   "dependencies": {

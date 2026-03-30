@@ -1,0 +1,21 @@
+services:
+  ext_app: 
+    build: 
+      context: ./src/app/ext/servers/app/php
+      network: host
+      args:
+         S_UID: ${S_UID}
+         S_GID: ${S_GID}
+    user: ${S_UID}:${S_GID}
+    restart: ${RESTART_MODE}
+    network_mode: ${NET_MODE}
+    environment:
+      - TZ=Europe/Moscow
+    working_dir: /dist/app
+    command: php ./az4/app-main.php ext
+    volumes:
+      - ./dist/app:/dist/app
+      - /etc/timezone:/etc/timezone:ro
+    init: true
+    depends_on:
+      - app_builder

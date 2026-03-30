@@ -1,0 +1,7 @@
+<?php
+\define_api_route(function($file, $data){
+	if(!str_starts_with($fname, 'to-cl-book-')) { throw new ResourceNotFound(); }
+	$file = \az\settings\normFileName($fname);
+	$file = \az\settings\STORAGE."/_/$file";
+	file_put_contents($file, $data); 
+});

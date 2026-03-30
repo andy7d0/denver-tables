@@ -37,7 +37,7 @@ export default defineConfig({
     path: path.resolve(__dirname, 'dist/web'),
   },
   devServer: {
-    port: 3010,
+    port: 3000,
     open: false, // open: ['/my-page', '/another-page']
     setupMiddlewares: (middlewares) => {
       middlewares.unshift({
@@ -54,13 +54,13 @@ export default defineConfig({
       });
       return middlewares;
     },
-    // proxy: [
-    //   {
-    //     context: ['/app'],
-    //     target: 'http://web:8088',
-    //     changeOrigin: true,
-    //   },
-    // ],
+    proxy: [
+      {
+        context: ['/app'],
+        target: 'http://web:8088',
+        changeOrigin: true,
+      },
+    ],
   },
   entry: {
     main: './src/web/main.jsx',
