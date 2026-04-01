@@ -21,6 +21,8 @@ mkdir -p workarea/modules/ext
 mkdir -p workarea/modules/int
 mkdir -p workarea/modules/par
 
+mkdir -p workarea/data/denver
+
 mkdir -p dist/web
 mkdir -p dist/app/ext
 mkdir -p dist/app/int

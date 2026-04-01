@@ -75,8 +75,10 @@ export async function customStore(prefix) {
  * subscribe to login state changed!
  */
 
-export async function getLoggedState() {
-  return await getKV('login-state', await customStore()) // use local (per branch) store
+let loginState = await getKV('login-state', await customStore())
+
+export function getLoggedState() {
+  return loginState  // use local (per branch) store
 }
 
 export async function getAPIparams() {
@@ -88,18 +90,12 @@ export async function getAPIparams() {
         }
 }
 
-export async function userStore() {
-  const ls = await getLoggedState()
-  return customStore(ls?.uinfo?.login??'')
-}
-async function userUkey() {
-  const ls = await getLoggedState()
-  return ls?.uinfo?.ukey
-}
+export function userStore() { return customStore(loginState?.uinfo?.login??'') }
+function userUkey() { return loginState?.uinfo?.ukey }
 
 export async function ukeyEncode(data) {
   data = JSON.stringify(data)
-  const ukey = await userUkey()
+  const ukey = userUkey()
 
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const chipher = await window.crypto.subtle.encrypt(
@@ -115,7 +111,7 @@ export async function ukeyEncode(data) {
 
 export async function ukeyDecode(data) {
   if(!data) return data;
-  const ukey = await userUkey()
+  const ukey = userUkey()
   const [ivHex, b64data] = data.split('~')
 
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -143,6 +139,7 @@ export async function ukeyDecode(data) {
  *    authorization: header to send with requests
  */
 export async function setAuthToken(auth) {
+  loginState = auth;
   if(!auth) {
     await delKV('login-state', await customStore())
   } else {
@@ -151,9 +148,16 @@ export async function setAuthToken(auth) {
   broadcast('auth', auth)
 }
 
+export function isExactLocahost() {
+  return hostname === '127.0.0.1' 
+  || hostname === 'localhost'
+  ;  // hardcoded, KISS  
+}
 
 export function isLocalServer() {
-  return hostname === '127.0.0.1' || hostname === 'localhost';  // hardcoded, KISS
+  return hostname.match(/^127[.]\d+[.]\d+[.]1$/) 
+  || hostname === 'localhost'
+  ;  // hardcoded, KISS
 }
 
 export function isProdDomain() {
@@ -210,6 +214,7 @@ export async function initPeerAndID() {
     ++codes.winId;
     peerCode = codes.peerCode;
     windowId = codes.winId;
+    broadcastOthers('otherWindows', {windowId})
     console.log(codes)
     return codes;
   }, await customStore())
@@ -238,7 +243,7 @@ export function subscribe(code, fun) {
   const prev = listeners[code]
   if(fun) listeners[code] = fun;
   else delete listeners[code];
-  return prev;
+  return () => subscribe(code, prev);
 }
 
 let channel = new BroadcastChannel('bc-main') // from worker to main
@@ -261,144 +266,22 @@ export function broadcast(code, data) {
 }
 
 
-// let focusTimers = new Set()
-// let bgTimers = new Set()
-// export function registerBgTimer(fun, always) {
-//   (always? bgTimers:focusTimers).add(fun)
-// }
-// export function unregisterBgTimer(fun) {
-//   focusTimers.delete(fun)
-//   bgTimers.delete(fun)
-// }
+const otherWindowsHolder = {}
 
-// window?.setInterval?.(()=>{
-//   if(document?.hasFocus()) for(let f of focusTimers) f()
-//   for(let f of bgTimers) f()
-// }, 1000)
-
-/* check server cache
-  in focused window call check response
-  if no response in check periond 
-*/
-
-let checkConnectionCallbacks = new Set();
-export function regsiterCheckConnection(fun) { checkConnectionCallbacks.add(fun);
-  return () => { checkConnectionCallbacks.delete(fun); }
-}
-  
-let controller = null;
-                // undefined - instant restart
-                // null - no restart
-function resetMonitor() {
-  if(controller) {
-      controller.abort();
-      controller = null;
-      // check(); - call in timer    
-  }
-}
-
-let checkUrl = null;
-export function setCheckUrl(url) { checkUrl = url; controller?.abort(); controller = undefined; }
-
-// TODO: share it between windows
-let monitoredSubscriptions = {}
-export function monitorResource(zone, id, version) {
-  if(version === undefined) {
-    if(monitoredSubscriptions[zone][id]!==undefined) {
-      const a = setter.object[id](undefined)(monitoredSubscriptions[zone])
-      monitoredSubscriptions[zone] = a;
-    }
-  } else { 
-    monitoredSubscriptions[zone] ??= {};
-    monitoredSubscriptions[zone][id] = version;
-  }
-  broadcast('monitor', monitoredSubscriptions)
-}
-subscribe('monitor', ms => {
-    monitoredSubscriptions = ms;
-    resetMonitor();
+subscribe('otherWindows', ({windowId:otherId}, event)=>{
+  // when new window open
+  otherWindowsHolder[otherId] = event.source;
+  // send our id is back to newly open window
+  broadcastOthers('otherWindowsBack', {windowId})
+})
+subscribe('otherWindowsBack', ({windowId}, event)=>{
+  otherWindowsHolder[windowId] = event.source;
 })
 
-
-if(self.document) {
-  const checkPeriod = 1000;
-  let lastSuccessfullCheck = 0;
-  let recentCheck = 0;
-  let lastStatus = undefined;
-  window.setInterval(()=>{
-    if(
-      recentCheck > Date.now() - checkPeriod*3
-    ) {
-      const st = lastSuccessfullCheck > Date.now() - checkPeriod*3
-      if(lastStatus !== st) {
-        console.log(`ping status: ${st?'online':'offline'}`)
-        lastStatus = st;
-      }
-      // only focused window can feedback 
-      for(const f of checkConnectionCallbacks) f(st)
-    } else {
-      for(const f of checkConnectionCallbacks) f() // undefined
-    }
-  }, checkPeriod*3)
-
-
-  async function check(){
-    if(!checkUrl) return;
-    console.log('start monitor')
-    if(!document.hasFocus()) return;
-    if(controller) {
-      controller.abort();
-      controller = undefined;
-    } else {
-      let instant = false;
-      controller = new AbortController();
-      recentCheck = Date.now();
-      let monitored = [];
-      for(const zone in monitoredSubscriptions) {
-        for(const key in monitoredSubscriptions[zone])
-          monitored.push([zone,key, monitoredSubscriptions[zone][key] ])
-      }
-      try{
-        const response = await fetch(checkUrl,{method: "POST"
-            , body:JSON.stringify(monitored)
-            , headers: {"Content-Type": "application/json"}
-            , signal: controller.signal})
-        if(!response.ok) {
-            throw new Error(`Monitor Response status: ${response.status}`);
-        }
-        if(response.status === 412) {
-          // dirty cache
-          const info = await response.json()
-          for(const c of info) {
-            
-          }
-          instant = true;
-        } else {
-          const stream = response.body.pipeThrough(new TextDecoderStream());
-          for await (const value of stream) {
-            console.log(`cache monitor: ${value}`);
-            lastSuccessfullCheck = Date.now();
-          }
-          console.log(`cache monitor end`);
-          if(controller === undefined) instant = true;
-        }
-      } catch(error) {
-          console.error(error.message)
-      }
-      controller = null;
-      window.setTimeout(check, instant? 0 : checkPeriod); // retry 
-    }
-  }
-
-  window.addEventListener('focus', check);
-  window.addEventListener('blur', () => {
-    console.log('blur')
-    resetMonitor()
-  })
-
-  window.setTimeout(check,10);
+export function otherWindows() {
+  return Object.values(otherWindowsHolder).filter(w=>w && !w.closed);
+  // TODO: remove closed from stored
 }
-
 
 /*
   global:

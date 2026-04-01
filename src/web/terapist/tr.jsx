@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo, useCallback} from 'react'
 import { Routes, Route, Outlet, useOutletContext, useParams, Link, useNavigate } from "react-router-dom"
+import {current} from 'immer'
 
 import {setAuthToken, subscribe, broadcast, getLoggedState} from 'azlib/common.mjs'
 
@@ -15,10 +16,10 @@ import {confirm, alert} from 'azlib/components/controls.jsx'
 import QInput from '../cmn/questions-input.jsx';
 
 import {tryLogin, registerLink, performRegister, sendToClient, trRead} from '../cmn/exchange.mjs'
+import {readUdata,setUdata} from '../cmn/exchange.mjs'
+
 
 import qs from '../data/quests.mjs';
-
-// import {current} from 'immer'
 
 
 export default function TrPage() {
@@ -36,45 +37,47 @@ export default function TrPage() {
 	</Routes>
 }
 
-/* NOT USED!
-const Uctx = createContext({})
-
-const empty = {}
-
-function UinfoContext({children}) {
-  const [auth, setAuth] = useState()
-  useEffect(()=>{
-    const prev = subscribe('auth', setAuth)
-    return () => subscribe('auth', prev)
-  },[setAuth])
-  useEffect(()=>{
-    getLoggedState().then(st=>{broadcast('auth', st)})
-  }, [])
-  return <Uctx value={auth?.uinfo??empty}>{children}</Uctx>
-}
-
-export function useUinfo() {
-  return useContext(Uctx);
-}
+/*
+	данные пользователя
+	1) всегда читаем локальную версию
+	2) подписываемся на обновление ключа (?)
+	3) вертим цикл опроса 
+	4) в цикле, если данные пришли, делаем merge
 */
-
-//{uinfo.login && <button onClick={()=>{logout(navigate)}}>logout</button>}
 
 
 function TrLayout() {
-	const [auth, setAuth] = useState()
-  useEffect(()=>{
-    const prev = subscribe('auth', setAuth)
-    return () => subscribe('auth', prev)
-  },[setAuth])
-  useEffect(()=>{
-    getLoggedState().then(st=>{broadcast('auth', st)})
-  }, [])
+	const [auth, setAuth] = useState(getLoggedState())
+  useEffect(()=>subscribe('auth', setAuth), [setAuth])
 
 	const login = auth?.uinfo?.login
 	const ukey = auth?.uinfo?.ukey
 
-	const [hasIndex, index, produceIndex] = useLocalState(`index-${login}`, {}, !auth)
+	const [hasIndex, index, produceIndexLocal] = useLocalState(`index-${login}`
+		, {}
+		, {suspend:!auth})
+
+	const produceIndex = useSrvASync(`index-${login}`, 
+		produceIndexLocal
+	, useCallback((key,data,draft)=>{
+		if(data) return;
+		for(const ch in data.children) {
+			if(data.children[ch] === null) {
+				draft.children ??= {}
+				draft.children[ch] = null;
+				continue;
+			}
+			if(!(ch in (draft.children ?? {}) )) {
+				draft.children ??= {}
+				draft.children[ch] = data.children[ch];
+				continue;
+			}
+			if(draft.children[ch].lastOp < data.children[ch].lastOp) {
+				draft.children[ch].lastOp = data.children[ch].lastOp;
+				continue;
+			}
+		}
+	}))
 
 	const ctx = useMemo(()=>({index,produceIndex,login,ukey}), [index,produceIndex,login,ukey])
 
@@ -96,9 +99,9 @@ function LoginPage() {
       const obj = Object.fromEntries(data.entries())
       try {
       	const login = data.get('login')
-      	const ukey = await tryLogin(login, data.get('pass'))
+      	const {ukey,token} = await tryLogin(login, data.get('pass'))
         await setAuthToken({
-          authorization: `Bearer: -:-`,
+          authorization: `Bearer: ${token}`,
           uinfo: {login, ukey}
         });
       } catch(error) {
@@ -174,6 +177,7 @@ function TrIndex() {
 		<h1>Дети</h1>
 		{children.length &&	
 			children
+			.filter(Boolean)
 			.toSorted(cmp.selector.desc('lastOp'))
 			.map(c=>
 			<div key={c.id}>
@@ -245,9 +249,9 @@ function TrChild() {
 					}}>Получить эксель</button>
 
 				<button type="button" onClick={async ()=>{
-						if(!await confirm(`и правда удалить всю информация о ${child.fio}`)) return;
+						if(!await confirm(`и правда удалить всю информация о ${child.fio??'---'}`)) return;
 						await produceIndex(draft=>{
-							delete draft.children[id]
+							draft.children[id] = null
 						})
 						navigate(`/tr`,{replace:true})
 				}}>Удалить ребенка и все его тесты</button>

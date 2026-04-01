@@ -4,4 +4,5 @@
 	$file = \az\settings\normFileName($fname);
 	$file = \az\settings\STORAGE."/_/$file";
 	return file_get_contents($file); 
-});
+}
+,__FILE__);

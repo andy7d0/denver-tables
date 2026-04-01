@@ -1,6 +1,7 @@
 import {sha256}  from  'js-sha256';
 import {get as getKV, set as setKV} from 'idb-keyval';
-import {customStore} from 'azlib/common.mjs'
+import {customStore, isExactLocahost} from 'azlib/common.mjs'
+import {api_get,api_post} from 'azlib/api.mjs'
 
 const MOCK_API = {
 	sendMail: (link) => { window.open(link, "_blank") }
@@ -10,21 +11,31 @@ const MOCK_API = {
 			await setKV('key-file', fileData, cs)
 			return true;
 	}
-	, tryLogin: async (login) => {
-			const cs = await customStore(login)
-			return await getKV('key-file', cs) ?? ''
-	}
+	, tryLogin: async login => await getKV('key-file', await customStore(login)) ?? ''
+	, readUdata: async (login, key) => getKV(`${key}.srv`, await customStore(login))
+	, setUdata: async (login, key, data) => setKV(`${key}.srv`, data, await customStore(login))
 	, sendToClient: async (fname, fileData) => setKV(fname, fileData, await customStore())
 	, clientRead: async fname => getKV(fname, await customStore())
 	, sendToTr: async (fname, fileData) => setKV(fname, fileData, await customStore())
 	, trRead: async fname => getKV(fname, await customStore())
 }
 
+const SRV_API = {
+	sendMail: (link) => { window.open(link, "_blank") }
+	, performRegister: (login, file) => api_post('/app/ext/tr/register',{login,file})
+	, tryLogin: (login) => api_post('/app/ext/tr/try',{login})	
+	, readUdata: (login, key) => api_post('/app/ext/tr/udata', {key}))
+	, setUdata: (login, key, data) => api_post('/app/ext/tr/udata-set', {key,data}))
+	, sendToClient: (fname, data) => api_post('/app/ext/tr/to-client',{fname, data})
+	, clientRead: fname => api_post('/app/ext/cl/cl-recv',{fname})
+	, sendToTr: (fname, data) => api_post('/app/ext/cl/to-tr',{fname, data})
+	, trRead: fname => api_post('/app/ext/tr/tr-recv',{fname})
+}
+
 // sendToClient checks if sender is tr and file ?
 // sendToTr ???
 
-
-const uAPI = MOCK_API
+const uAPI = isExactLocahost() ? MOCK_API : SRV_API;
 
 function kfPass(login,pass) {
 	const kf_pass = sha256(sha256.hmac(login,pass),'key-file-pass') //FIXME: pdfkb or friends
@@ -72,11 +83,19 @@ export async function tryLogin(login,pass){
 			, Uint8Array.fromHex(textIn)
 		)
 
-  return window.crypto.subtle.importKey('raw'
+  return {ukey: window.crypto.subtle.importKey('raw'
     , plain
     , { name: 'AES-GCM' }
     , false
     , ['encrypt','decrypt'])
+  , token: sha256.hmac(kf, login)}
+}
+
+export async function readUdata(login) {
+	const server_idx = await uAPI.readUdata(login)
+}
+export async function setUdata(login, data) {
+	const server_idx = await uAPI.readUdata(login)
 }
 
 export async function sendToClient(test, clId, login) {

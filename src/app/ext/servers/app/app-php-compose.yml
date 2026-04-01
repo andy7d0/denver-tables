@@ -16,6 +16,7 @@ services:
     volumes:
       - ./dist/app:/dist/app
       - /etc/timezone:/etc/timezone:ro
+      - ./workarea/data/denver:/var/denver
     init: true
     depends_on:
       - app_builder

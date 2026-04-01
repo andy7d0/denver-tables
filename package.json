@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "dev": "rspack dev",
     "lint": "oxlint",
     "compose": "./dev/scripts/compose.sh",
     "compose-run": "./dev/scripts/compose.sh run --remove-orphans",
