@@ -12,8 +12,22 @@ const MOCK_API = {
 			return true;
 	}
 	, tryLogin: async login => await getKV('key-file', await customStore(login)) ?? ''
-	, readUdata: async (login, key) => getKV(`${key}.srv`, await customStore(login))
-	, setUdata: async (login, key, data) => setKV(`${key}.srv`, data, await customStore(login))
+	, syncUdata: async (login, data) => {
+			const cs = await customStore(login)
+			const ret = []
+			for(const [k, v, nd] of data) {
+				const d = await getKV(`${k}.srv`, cs) 
+				if(d) {
+					if(v !== sha256(d)) {
+						ret.push([k,d])
+						continue;
+					}
+				}
+				if(nd) {
+					await setKV(k,nd)
+				}
+			}
+		}
 	, sendToClient: async (fname, fileData) => setKV(fname, fileData, await customStore())
 	, clientRead: async fname => getKV(fname, await customStore())
 	, sendToTr: async (fname, fileData) => setKV(fname, fileData, await customStore())
@@ -24,8 +38,7 @@ const SRV_API = {
 	sendMail: (link) => { window.open(link, "_blank") }
 	, performRegister: (login, file) => api_post('/app/ext/tr/register',{login,file})
 	, tryLogin: (login) => api_post('/app/ext/tr/try',{login})	
-	, readUdata: (login, key) => api_post('/app/ext/tr/udata', {key}))
-	, setUdata: (login, key, data) => api_post('/app/ext/tr/udata-set', {key,data}))
+	, syncUdata: (login, data) => api_post('/app/ext/tr/udata-set', {login,data})
 	, sendToClient: (fname, data) => api_post('/app/ext/tr/to-client',{fname, data})
 	, clientRead: fname => api_post('/app/ext/cl/cl-recv',{fname})
 	, sendToTr: (fname, data) => api_post('/app/ext/cl/to-tr',{fname, data})
@@ -62,7 +75,8 @@ export async function registerLink(login,pass) {
 
 	const encLogin = (new TextEncoder).encode(login)
 
-	return uAPI.sendMail(new URL(`/register/${encLogin.toHex()}~${iv.toHex()}~${new Uint8Array(chipher).toHex()}`, window.location.href));
+	return uAPI.sendMail(new URL(`/register/${encLogin.toHex()}~${iv.toHex()}~${new Uint8Array(chipher).toHex()}`
+			, window.location.href));
 }
 
 export async function performRegister(link) {
@@ -83,7 +97,7 @@ export async function tryLogin(login,pass){
 			, Uint8Array.fromHex(textIn)
 		)
 
-  return {ukey: window.crypto.subtle.importKey('raw'
+  return {ukey: await window.crypto.subtle.importKey('raw'
     , plain
     , { name: 'AES-GCM' }
     , false
@@ -91,11 +105,8 @@ export async function tryLogin(login,pass){
   , token: sha256.hmac(kf, login)}
 }
 
-export async function readUdata(login) {
-	const server_idx = await uAPI.readUdata(login)
-}
-export async function setUdata(login, data) {
-	const server_idx = await uAPI.readUdata(login)
+export async function syncUdata(login, data) {
+	const server_idx = await uAPI.readUdata(login, data)
 }
 
 export async function sendToClient(test, clId, login) {

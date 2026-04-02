@@ -44,19 +44,7 @@ export default function TrPage() {
 	3) вертим цикл опроса 
 	4) в цикле, если данные пришли, делаем merge
 */
-
-
-function TrLayout() {
-	const [auth, setAuth] = useState(getLoggedState())
-  useEffect(()=>subscribe('auth', setAuth), [setAuth])
-
-	const login = auth?.uinfo?.login
-	const ukey = auth?.uinfo?.ukey
-
-	const [hasIndex, index, produceIndexLocal] = useLocalState(`index-${login}`
-		, {}
-		, {suspend:!auth})
-
+/*
 	const produceIndex = useSrvASync(`index-${login}`, 
 		produceIndexLocal
 	, useCallback((key,data,draft)=>{
@@ -78,6 +66,18 @@ function TrLayout() {
 			}
 		}
 	}))
+*/
+
+function TrLayout() {
+	const [auth, setAuth] = useState(getLoggedState())
+  useEffect(()=>subscribe('auth', setAuth), [setAuth])
+
+	const login = auth?.uinfo?.login
+	const ukey = auth?.uinfo?.ukey
+
+	const [hasIndex, index, produceIndex] = useLocalState(`index-${login}`
+		, {}
+		, {suspend:!auth})
 
 	const ctx = useMemo(()=>({index,produceIndex,login,ukey}), [index,produceIndex,login,ukey])
 

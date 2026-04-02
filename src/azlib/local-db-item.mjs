@@ -71,11 +71,11 @@ export function useLocalState(key, def, {suspend, syncMonitor }={}) {
 				const next = produce(prev.val, producer)
 				const ret = {key:prev.key, val:next}
 				seqSave(prev.key, next)
-				.then(()=>
+				.then(async ()=>{
 					// queue change
 					await updateKV('changed', c => (c??new Map()).set(ret.key, ret.val), await userStore())
-					broadcastOthers('localStateChanged', [ret.key, ret.val])
-				)
+					return broadcastOthers('localStateChanged', [ret.key, ret.val])
+				})
 				return ret;
 			})
 			return syncSave();
@@ -125,7 +125,7 @@ export function monitorSource(name, syncFunc, mergeFunc) {
 				Object.keys(monitoredKeys).map((k,i)=>[k,sha256(items[i]), wrt.get(k)])
 			let response = await syncFunc(request)
 			if(response) {
-				response = response.map(([k,v], i)=> [k, 
+				response = response.map(async([k,v], i)=> [k, 
 						mergeFunc(k, await ukeyDecode(v), await ukeyDecode(items[i]))] )
 				await setManyKV(response, us)
 
@@ -139,7 +139,7 @@ export function monitorSource(name, syncFunc, mergeFunc) {
 				broadcast('localStateChanged', response)
 				if(mergedWrt.size) return true;
 			}
-		} cactc(e) {
+		} catch(e) {
 			console.error('bg sync', e);
 		}
 	}
